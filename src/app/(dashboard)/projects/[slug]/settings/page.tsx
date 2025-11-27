@@ -20,7 +20,7 @@ import {
 interface Member {
   id: string
   userId: string
-  role: 'OWNER' | 'CONSULTANT' | 'VIEWER'
+  role: 'OWNER' | 'CONSULTANT' | 'CLIENT'
   user: {
     id: string
     name: string
@@ -68,7 +68,7 @@ export default function ProjectSettingsPage() {
   const [showAddMember, setShowAddMember] = useState(false)
   const [availableUsers, setAvailableUsers] = useState<AvailableUser[]>([])
   const [selectedUserId, setSelectedUserId] = useState('')
-  const [selectedRole, setSelectedRole] = useState<'CONSULTANT' | 'VIEWER'>('VIEWER')
+  const [selectedRole, setSelectedRole] = useState<'CONSULTANT' | 'CLIENT'>('CLIENT')
   const [addingMember, setAddingMember] = useState(false)
   const [removingMember, setRemovingMember] = useState<string | null>(null)
 
@@ -163,7 +163,7 @@ export default function ProjectSettingsPage() {
 
       setShowAddMember(false)
       setSelectedUserId('')
-      setSelectedRole('VIEWER')
+      setSelectedRole('CLIENT')
       fetchProject()
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Error al añadir miembro')
@@ -230,7 +230,7 @@ export default function ProjectSettingsPage() {
         return 'Propietario'
       case 'CONSULTANT':
         return 'Consultor'
-      case 'VIEWER':
+      case 'CLIENT':
         return 'Cliente'
       default:
         return role
@@ -414,7 +414,7 @@ export default function ProjectSettingsPage() {
                         className="text-sm border border-gray-300 rounded px-2 py-1"
                       >
                         <option value="CONSULTANT">Consultor</option>
-                        <option value="VIEWER">Cliente</option>
+                        <option value="CLIENT">Cliente</option>
                       </select>
                     )}
                   </div>
@@ -482,7 +482,7 @@ export default function ProjectSettingsPage() {
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                 >
                   <option value="CONSULTANT">Consultor (puede editar)</option>
-                  <option value="VIEWER">Cliente (solo lectura)</option>
+                  <option value="CLIENT">Cliente (solo lectura)</option>
                 </select>
               </div>
             </div>
