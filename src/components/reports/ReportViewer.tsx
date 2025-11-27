@@ -167,7 +167,7 @@ export function ReportViewer({
   if (isFullscreen) {
     return (
       <div className="fixed inset-0 bg-white z-50 flex flex-col">
-        <div className="flex items-center justify-between p-4 bg-gray-100 border-b">
+        <div className="flex items-center justify-between p-4 bg-gray-100 border-b shrink-0">
           <h2 className="font-semibold text-dark">{title}</h2>
           <div className="flex items-center gap-2">
             <button
@@ -193,12 +193,16 @@ export function ReportViewer({
             </button>
           </div>
         </div>
-        <iframe
-          ref={iframeRefCallback}
-          className="flex-1 w-full border-0 bg-white"
-          title={title}
-          sandbox="allow-scripts allow-same-origin"
-        />
+        <div className="flex-1 overflow-auto min-h-0">
+          <iframe
+            key="fullscreen-iframe"
+            ref={iframeRefCallback}
+            className="w-full h-full border-0 bg-white"
+            style={{ minHeight: '100%' }}
+            title={title}
+            sandbox="allow-scripts allow-same-origin"
+          />
+        </div>
       </div>
     )
   }
@@ -328,6 +332,7 @@ export function ReportViewer({
 
       {/* Iframe del informe */}
       <iframe
+        key="normal-iframe"
         ref={iframeRefCallback}
         className="flex-1 w-full border-0 bg-white"
         title={title}
