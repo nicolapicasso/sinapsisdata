@@ -87,9 +87,21 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
 
   const canEdit = effectiveRole !== 'CLIENT'
 
+  // Cast socialLinks to proper type for ProjectHeader
+  const projectForHeader = {
+    ...project,
+    socialLinks: project.socialLinks as {
+      instagram?: string
+      youtube?: string
+      facebook?: string
+      linkedin?: string
+      twitter?: string
+    } | null,
+  }
+
   return (
     <div>
-      <ProjectHeader project={project} canEdit={canEdit} />
+      <ProjectHeader project={projectForHeader} canEdit={canEdit} />
       <ProjectTabs
         project={project}
         reports={project.reports}

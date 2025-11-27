@@ -15,6 +15,13 @@ import {
   Crown,
   UserCog,
   User,
+  Globe,
+  Instagram,
+  Youtube,
+  Linkedin,
+  Facebook,
+  Image,
+  Link2,
 } from 'lucide-react'
 
 interface Member {
@@ -29,12 +36,24 @@ interface Member {
   }
 }
 
+interface SocialLinks {
+  instagram?: string
+  youtube?: string
+  facebook?: string
+  linkedin?: string
+  twitter?: string
+}
+
 interface Project {
   id: string
   name: string
   slug: string
   description: string | null
+  logo: string | null
+  coverImage: string | null
   websiteUrl: string | null
+  mondayBoardUrl: string | null
+  socialLinks: SocialLinks | null
   aiContext: string | null
   status: 'ACTIVE' | 'PAUSED' | 'ARCHIVED'
   members: Member[]
@@ -60,7 +79,11 @@ export default function ProjectSettingsPage() {
   // Form state
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
+  const [logo, setLogo] = useState('')
+  const [coverImage, setCoverImage] = useState('')
   const [websiteUrl, setWebsiteUrl] = useState('')
+  const [mondayBoardUrl, setMondayBoardUrl] = useState('')
+  const [socialLinks, setSocialLinks] = useState<SocialLinks>({})
   const [aiContext, setAiContext] = useState('')
   const [status, setStatus] = useState<'ACTIVE' | 'PAUSED' | 'ARCHIVED'>('ACTIVE')
 
@@ -84,7 +107,11 @@ export default function ProjectSettingsPage() {
       setProject(data)
       setName(data.name)
       setDescription(data.description || '')
+      setLogo(data.logo || '')
+      setCoverImage(data.coverImage || '')
       setWebsiteUrl(data.websiteUrl || '')
+      setMondayBoardUrl(data.mondayBoardUrl || '')
+      setSocialLinks(data.socialLinks || {})
       setAiContext(data.aiContext || '')
       setStatus(data.status)
     } catch (err) {
@@ -117,7 +144,11 @@ export default function ProjectSettingsPage() {
         body: JSON.stringify({
           name,
           description,
-          websiteUrl,
+          logo: logo || null,
+          coverImage: coverImage || null,
+          websiteUrl: websiteUrl || null,
+          mondayBoardUrl: mondayBoardUrl || null,
+          socialLinks,
           aiContext,
           status,
         }),
@@ -307,17 +338,123 @@ export default function ProjectSettingsPage() {
                 />
               </div>
 
+              {/* Imagenes */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <Image className="w-4 h-4 inline mr-1" />
+                    URL del logotipo
+                  </label>
+                  <input
+                    type="url"
+                    value={logo}
+                    onChange={(e) => setLogo(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    placeholder="https://ejemplo.com/logo.png"
+                  />
+                  {logo && (
+                    <div className="mt-2 w-16 h-16 rounded-lg border border-gray-200 overflow-hidden bg-gray-50">
+                      <img src={logo} alt="Logo" className="w-full h-full object-contain" />
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <Image className="w-4 h-4 inline mr-1" />
+                    URL de imagen de portada
+                  </label>
+                  <input
+                    type="url"
+                    value={coverImage}
+                    onChange={(e) => setCoverImage(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    placeholder="https://ejemplo.com/cover.jpg"
+                  />
+                  {coverImage && (
+                    <div className="mt-2 w-full h-20 rounded-lg border border-gray-200 overflow-hidden bg-gray-50">
+                      <img src={coverImage} alt="Portada" className="w-full h-full object-cover" />
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* URLs */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <Globe className="w-4 h-4 inline mr-1" />
+                    URL del sitio web
+                  </label>
+                  <input
+                    type="url"
+                    value={websiteUrl}
+                    onChange={(e) => setWebsiteUrl(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    placeholder="https://ejemplo.com"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <Link2 className="w-4 h-4 inline mr-1" />
+                    URL de Monday
+                  </label>
+                  <input
+                    type="url"
+                    value={mondayBoardUrl}
+                    onChange={(e) => setMondayBoardUrl(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    placeholder="https://monday.com/boards/..."
+                  />
+                </div>
+              </div>
+
+              {/* Redes sociales */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  URL del sitio web
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  Redes sociales
                 </label>
-                <input
-                  type="url"
-                  value={websiteUrl}
-                  onChange={(e) => setWebsiteUrl(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                  placeholder="https://ejemplo.com"
-                />
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="flex items-center gap-2">
+                    <Instagram className="w-5 h-5 text-pink-500 shrink-0" />
+                    <input
+                      type="url"
+                      value={socialLinks.instagram || ''}
+                      onChange={(e) => setSocialLinks({ ...socialLinks, instagram: e.target.value })}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent"
+                      placeholder="https://instagram.com/..."
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Youtube className="w-5 h-5 text-red-500 shrink-0" />
+                    <input
+                      type="url"
+                      value={socialLinks.youtube || ''}
+                      onChange={(e) => setSocialLinks({ ...socialLinks, youtube: e.target.value })}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent"
+                      placeholder="https://youtube.com/..."
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Facebook className="w-5 h-5 text-blue-600 shrink-0" />
+                    <input
+                      type="url"
+                      value={socialLinks.facebook || ''}
+                      onChange={(e) => setSocialLinks({ ...socialLinks, facebook: e.target.value })}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent"
+                      placeholder="https://facebook.com/..."
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Linkedin className="w-5 h-5 text-blue-700 shrink-0" />
+                    <input
+                      type="url"
+                      value={socialLinks.linkedin || ''}
+                      onChange={(e) => setSocialLinks({ ...socialLinks, linkedin: e.target.value })}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent"
+                      placeholder="https://linkedin.com/..."
+                    />
+                  </div>
+                </div>
               </div>
 
               <div>

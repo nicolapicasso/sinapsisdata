@@ -100,7 +100,7 @@ export async function PUT(
       return NextResponse.json({ error: 'No tienes permisos para editar este proyecto' }, { status: 403 })
     }
 
-    const { name, description, websiteUrl, aiContext, socialLinks, status } = await req.json()
+    const { name, description, websiteUrl, mondayBoardUrl, aiContext, socialLinks, logo, coverImage, status } = await req.json()
 
     const updateData: Record<string, unknown> = {}
 
@@ -130,8 +130,11 @@ export async function PUT(
 
     if (description !== undefined) updateData.description = description
     if (websiteUrl !== undefined) updateData.websiteUrl = websiteUrl
+    if (mondayBoardUrl !== undefined) updateData.mondayBoardUrl = mondayBoardUrl
     if (aiContext !== undefined) updateData.aiContext = aiContext
     if (socialLinks !== undefined) updateData.socialLinks = socialLinks
+    if (logo !== undefined) updateData.logo = logo
+    if (coverImage !== undefined) updateData.coverImage = coverImage
     if (status) updateData.status = status
 
     const updated = await prisma.project.update({
