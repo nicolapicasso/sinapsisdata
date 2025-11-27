@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { Download, Printer, Wand2, Save, X, Edit2, Loader2, Maximize2, Minimize2 } from 'lucide-react'
 
 interface ReportViewerProps {
@@ -24,7 +24,8 @@ export function ReportViewer({
   strengths,
   onRefresh,
 }: ReportViewerProps) {
-  const iframeRef = useRef<HTMLIFrameElement>(null)
+  // Ref para el iframe actual (para imprimir)
+  const currentIframeRef = useRef<HTMLIFrameElement>(null)
 
   // Estados para pedir cambios
   const [showRefineModal, setShowRefineModal] = useState(false)
@@ -72,20 +73,22 @@ export function ReportViewer({
     return htmlContent + customNotesHtml
   }, [htmlContent, executiveSummary, strengths])
 
-  useEffect(() => {
-    if (iframeRef.current) {
-      const doc = iframeRef.current.contentDocument
+  // Callback ref que escribe el contenido cuando el iframe se monta
+  const iframeRefCallback = useCallback((iframe: HTMLIFrameElement | null) => {
+    if (iframe) {
+      currentIframeRef.current = iframe
+      const doc = iframe.contentDocument
       if (doc) {
         doc.open()
         doc.write(finalHtml)
         doc.close()
       }
     }
-  }, [finalHtml, isFullscreen])
+  }, [finalHtml])
 
   const handlePrint = () => {
-    if (iframeRef.current?.contentWindow) {
-      iframeRef.current.contentWindow.print()
+    if (currentIframeRef.current?.contentWindow) {
+      currentIframeRef.current.contentWindow.print()
     }
   }
 
@@ -191,7 +194,7 @@ export function ReportViewer({
           </div>
         </div>
         <iframe
-          ref={iframeRef}
+          ref={iframeRefCallback}
           className="flex-1 w-full border-0 bg-white"
           title={title}
           sandbox="allow-scripts allow-same-origin"
@@ -325,7 +328,7 @@ export function ReportViewer({
 
       {/* Iframe del informe */}
       <iframe
-        ref={iframeRef}
+        ref={iframeRefCallback}
         className="flex-1 w-full border-0 bg-white"
         title={title}
         sandbox="allow-scripts allow-same-origin"
