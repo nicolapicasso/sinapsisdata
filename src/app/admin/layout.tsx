@@ -4,7 +4,7 @@ import { authOptions } from '@/lib/auth'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { Header } from '@/components/layout/Header'
 
-export default async function DashboardLayout({
+export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode
@@ -13,6 +13,10 @@ export default async function DashboardLayout({
 
   if (!session) {
     redirect('/login')
+  }
+
+  if (session.user.role !== 'ADMIN') {
+    redirect('/dashboard')
   }
 
   return (
