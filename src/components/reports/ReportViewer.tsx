@@ -59,20 +59,42 @@ export function ReportViewer({
           box-sizing: border-box !important;
         }
         *, *::before, *::after {
-          box-sizing: inherit !important;
+          box-sizing: border-box !important;
+          max-width: 100% !important;
         }
-        img, svg, canvas, video, iframe {
+        img, svg, video, iframe {
           max-width: 100% !important;
           height: auto !important;
+        }
+        canvas {
+          max-width: 100% !important;
         }
         table {
           max-width: 100% !important;
           overflow-x: auto !important;
           display: block !important;
         }
-        .chart-container, [class*="chart"], [class*="graph"] {
+        /* Forzar contenedores de gráficos ECharts y similares */
+        [id*="chart"], [id*="Chart"], [id*="graph"], [id*="Graph"],
+        [class*="chart"], [class*="Chart"], [class*="graph"], [class*="Graph"],
+        [data-zr-dom-id], [class*="echarts"], [id*="echarts"] {
           max-width: 100% !important;
-          overflow-x: auto !important;
+          width: 100% !important;
+        }
+        /* Forzar divs con position relative que contengan canvas */
+        div[style*="position: relative"] {
+          max-width: 100% !important;
+          width: 100% !important;
+        }
+        div[style*="position:relative"] {
+          max-width: 100% !important;
+          width: 100% !important;
+        }
+        /* Contenedores de gráficos con anchos fijos */
+        div[style*="width:"] > canvas,
+        div[style*="width: "] > canvas {
+          width: 100% !important;
+          max-width: 100% !important;
         }
       </style>
     `
