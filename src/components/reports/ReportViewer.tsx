@@ -46,30 +46,65 @@ export function ReportViewer({
     setNotesContent(strengths || '')
   }, [executiveSummary, strengths])
 
-  // Generar el HTML combinado con las notas inyectadas
+  // Generar el HTML combinado con las notas inyectadas y CSS de ajuste
   const finalHtml = useMemo(() => {
-    // Si no hay contenido de notas, devolver el HTML original
-    if (!strengths) {
-      return htmlContent
-    }
+    let modifiedHtml = htmlContent
 
-    const notesTitleText = executiveSummary || 'Notas del Equipo'
-
-    // Crear el bloque de notas personalizadas
-    const customNotesHtml = `
-      <div style="margin-top: 40px; padding: 30px; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border-radius: 12px; border-left: 4px solid #215A6B; page-break-inside: avoid;">
-        <h2 style="color: #215A6B; margin: 0 0 20px 0; font-size: 1.5rem; font-weight: 600;">${notesTitleText}</h2>
-        <div style="color: #4a5568; line-height: 1.8; white-space: pre-wrap;">${strengths}</div>
-      </div>
+    // CSS para forzar que el contenido se ajuste al viewport
+    const responsiveCss = `
+      <style>
+        html, body {
+          max-width: 100% !important;
+          overflow-x: hidden !important;
+          box-sizing: border-box !important;
+        }
+        *, *::before, *::after {
+          box-sizing: inherit !important;
+        }
+        img, svg, canvas, video, iframe {
+          max-width: 100% !important;
+          height: auto !important;
+        }
+        table {
+          max-width: 100% !important;
+          overflow-x: auto !important;
+          display: block !important;
+        }
+        .chart-container, [class*="chart"], [class*="graph"] {
+          max-width: 100% !important;
+          overflow-x: auto !important;
+        }
+      </style>
     `
 
-    // Inyectar las notas antes del cierre de </body>
-    if (htmlContent.includes('</body>')) {
-      return htmlContent.replace('</body>', `${customNotesHtml}</body>`)
+    // Inyectar CSS responsivo
+    if (modifiedHtml.includes('</head>')) {
+      modifiedHtml = modifiedHtml.replace('</head>', `${responsiveCss}</head>`)
+    } else if (modifiedHtml.includes('<body')) {
+      modifiedHtml = modifiedHtml.replace('<body', `${responsiveCss}<body`)
+    } else {
+      modifiedHtml = responsiveCss + modifiedHtml
     }
 
-    // Si no tiene </body>, agregar al final
-    return htmlContent + customNotesHtml
+    // Si hay notas, inyectarlas
+    if (strengths) {
+      const notesTitleText = executiveSummary || 'Notas del Equipo'
+
+      const customNotesHtml = `
+        <div style="margin-top: 40px; padding: 30px; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border-radius: 12px; border-left: 4px solid #215A6B; page-break-inside: avoid;">
+          <h2 style="color: #215A6B; margin: 0 0 20px 0; font-size: 1.5rem; font-weight: 600;">${notesTitleText}</h2>
+          <div style="color: #4a5568; line-height: 1.8; white-space: pre-wrap;">${strengths}</div>
+        </div>
+      `
+
+      if (modifiedHtml.includes('</body>')) {
+        modifiedHtml = modifiedHtml.replace('</body>', `${customNotesHtml}</body>`)
+      } else {
+        modifiedHtml = modifiedHtml + customNotesHtml
+      }
+    }
+
+    return modifiedHtml
   }, [htmlContent, executiveSummary, strengths])
 
   useEffect(() => {
