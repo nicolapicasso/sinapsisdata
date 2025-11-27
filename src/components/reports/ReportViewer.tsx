@@ -1,16 +1,17 @@
 'use client'
 
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { Download, Printer, Wand2, Save, X, Edit2, Loader2 } from 'lucide-react'
+import { Download, Printer, Wand2, Save, X, Edit2, Loader2, Maximize2, Minimize2 } from 'lucide-react'
 
 interface ReportViewerProps {
   htmlContent: string
   title: string
   reportId: string
   canEdit: boolean
-  executiveSummary?: string | null
-  strengths?: string | null
-  opportunities?: string | null
+  // Usamos executiveSummary para el título y strengths para el contenido
+  executiveSummary?: string | null  // Título de las notas
+  strengths?: string | null         // Contenido de las notas
+  opportunities?: string | null     // No usado (reservado)
   onRefresh?: () => void
 }
 
@@ -21,7 +22,6 @@ export function ReportViewer({
   canEdit,
   executiveSummary,
   strengths,
-  opportunities,
   onRefresh,
 }: ReportViewerProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null)
@@ -31,54 +31,46 @@ export function ReportViewer({
   const [refinePrompt, setRefinePrompt] = useState('')
   const [refining, setRefining] = useState(false)
 
-  // Estados para edicion de secciones
-  const [editingSection, setEditingSection] = useState<'summary' | 'strengths' | 'opportunities' | null>(null)
-  const [editValue, setEditValue] = useState('')
+  // Estados para notas del equipo
+  const [editingNotes, setEditingNotes] = useState(false)
+  const [notesTitle, setNotesTitle] = useState(executiveSummary || 'Notas del Equipo')
+  const [notesContent, setNotesContent] = useState(strengths || '')
   const [saving, setSaving] = useState(false)
 
-  // Generar el HTML combinado con las secciones editables inyectadas
+  // Estado para pantalla completa
+  const [isFullscreen, setIsFullscreen] = useState(false)
+
+  // Actualizar estados cuando cambien las props
+  useEffect(() => {
+    setNotesTitle(executiveSummary || 'Notas del Equipo')
+    setNotesContent(strengths || '')
+  }, [executiveSummary, strengths])
+
+  // Generar el HTML combinado con las notas inyectadas
   const finalHtml = useMemo(() => {
-    // Si no hay ninguna seccion personalizada, devolver el HTML original
-    if (!executiveSummary && !strengths && !opportunities) {
+    // Si no hay contenido de notas, devolver el HTML original
+    if (!strengths) {
       return htmlContent
     }
 
-    // Crear el bloque de secciones personalizadas
-    const customSectionsHtml = `
-      <div style="margin-top: 40px; padding: 30px; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border-radius: 12px; border-left: 4px solid #215A6B;">
-        <h2 style="color: #215A6B; margin: 0 0 20px 0; font-size: 1.5rem; font-weight: 600;">Notas del Equipo</h2>
+    const notesTitleText = executiveSummary || 'Notas del Equipo'
 
-        ${executiveSummary ? `
-          <div style="margin-bottom: 20px;">
-            <h3 style="color: #1A1A1A; margin: 0 0 10px 0; font-size: 1.1rem; font-weight: 600;">Resumen Ejecutivo</h3>
-            <p style="color: #4a5568; margin: 0; line-height: 1.6; white-space: pre-wrap;">${executiveSummary}</p>
-          </div>
-        ` : ''}
-
-        ${strengths ? `
-          <div style="margin-bottom: 20px;">
-            <h3 style="color: #1A1A1A; margin: 0 0 10px 0; font-size: 1.1rem; font-weight: 600;">Fortalezas Identificadas</h3>
-            <p style="color: #4a5568; margin: 0; line-height: 1.6; white-space: pre-wrap;">${strengths}</p>
-          </div>
-        ` : ''}
-
-        ${opportunities ? `
-          <div style="margin-bottom: 0;">
-            <h3 style="color: #1A1A1A; margin: 0 0 10px 0; font-size: 1.1rem; font-weight: 600;">Oportunidades de Mejora</h3>
-            <p style="color: #4a5568; margin: 0; line-height: 1.6; white-space: pre-wrap;">${opportunities}</p>
-          </div>
-        ` : ''}
+    // Crear el bloque de notas personalizadas
+    const customNotesHtml = `
+      <div style="margin-top: 40px; padding: 30px; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border-radius: 12px; border-left: 4px solid #215A6B; page-break-inside: avoid;">
+        <h2 style="color: #215A6B; margin: 0 0 20px 0; font-size: 1.5rem; font-weight: 600;">${notesTitleText}</h2>
+        <div style="color: #4a5568; line-height: 1.8; white-space: pre-wrap;">${strengths}</div>
       </div>
     `
 
-    // Inyectar las secciones antes del cierre de </body>
+    // Inyectar las notas antes del cierre de </body>
     if (htmlContent.includes('</body>')) {
-      return htmlContent.replace('</body>', `${customSectionsHtml}</body>`)
+      return htmlContent.replace('</body>', `${customNotesHtml}</body>`)
     }
 
     // Si no tiene </body>, agregar al final
-    return htmlContent + customSectionsHtml
-  }, [htmlContent, executiveSummary, strengths, opportunities])
+    return htmlContent + customNotesHtml
+  }, [htmlContent, executiveSummary, strengths])
 
   useEffect(() => {
     if (iframeRef.current) {
@@ -89,7 +81,7 @@ export function ReportViewer({
         doc.close()
       }
     }
-  }, [finalHtml])
+  }, [finalHtml, isFullscreen])
 
   const handlePrint = () => {
     if (iframeRef.current?.contentWindow) {
@@ -98,7 +90,6 @@ export function ReportViewer({
   }
 
   const handleDownload = () => {
-    // Descargar el HTML con las secciones personalizadas incluidas
     const blob = new Blob([finalHtml], { type: 'text/html' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -136,65 +127,88 @@ export function ReportViewer({
     }
   }
 
-  const handleStartEdit = (section: 'summary' | 'strengths' | 'opportunities') => {
-    setEditingSection(section)
-    if (section === 'summary') {
-      setEditValue(executiveSummary || '')
-    } else if (section === 'strengths') {
-      setEditValue(strengths || '')
-    } else {
-      setEditValue(opportunities || '')
-    }
-  }
-
-  const handleSaveEdit = async () => {
+  const handleSaveNotes = async () => {
     setSaving(true)
     try {
-      const body: Record<string, string> = {}
-      if (editingSection === 'summary') {
-        body.executiveSummary = editValue
-      } else if (editingSection === 'strengths') {
-        body.strengths = editValue
-      } else if (editingSection === 'opportunities') {
-        body.opportunities = editValue
-      }
-
       const res = await fetch(`/api/reports/${reportId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
+        body: JSON.stringify({
+          executiveSummary: notesTitle,
+          strengths: notesContent,
+        }),
       })
 
       if (!res.ok) {
         throw new Error('Error al guardar')
       }
 
-      setEditingSection(null)
+      setEditingNotes(false)
       onRefresh?.()
     } catch (error) {
-      alert('Error al guardar los cambios')
+      alert('Error al guardar las notas')
     } finally {
       setSaving(false)
     }
   }
 
-  const getSectionLabel = (section: 'summary' | 'strengths' | 'opportunities') => {
-    switch (section) {
-      case 'summary': return 'Resumen Ejecutivo'
-      case 'strengths': return 'Fortalezas Identificadas'
-      case 'opportunities': return 'Oportunidades de Mejora'
-    }
+  const handleFullscreen = () => {
+    setIsFullscreen(true)
   }
 
-  const getSectionValue = (section: 'summary' | 'strengths' | 'opportunities') => {
-    switch (section) {
-      case 'summary': return executiveSummary
-      case 'strengths': return strengths
-      case 'opportunities': return opportunities
-    }
+  const handleExitFullscreen = () => {
+    setIsFullscreen(false)
   }
 
-  const sections: ('summary' | 'strengths' | 'opportunities')[] = ['summary', 'strengths', 'opportunities']
+  // Componente del visor del informe
+  const ReportContent = () => (
+    <iframe
+      ref={iframeRef}
+      className="flex-1 w-full border-0 bg-white"
+      title={title}
+      sandbox="allow-scripts allow-same-origin"
+    />
+  )
+
+  // Modal de pantalla completa
+  if (isFullscreen) {
+    return (
+      <div className="fixed inset-0 bg-white z-50 flex flex-col">
+        <div className="flex items-center justify-between p-4 bg-gray-100 border-b">
+          <h2 className="font-semibold text-dark">{title}</h2>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleDownload}
+              className="flex items-center gap-2 px-3 py-2 text-gray-600 hover:bg-gray-200 rounded-lg transition text-sm"
+            >
+              <Download className="w-4 h-4" />
+              Descargar
+            </button>
+            <button
+              onClick={handlePrint}
+              className="flex items-center gap-2 px-3 py-2 bg-primary text-white rounded-lg hover:bg-primary-600 transition text-sm"
+            >
+              <Printer className="w-4 h-4" />
+              Imprimir
+            </button>
+            <button
+              onClick={handleExitFullscreen}
+              className="flex items-center gap-2 px-3 py-2 text-gray-600 hover:bg-gray-200 rounded-lg transition text-sm"
+            >
+              <Minimize2 className="w-4 h-4" />
+              Salir
+            </button>
+          </div>
+        </div>
+        <iframe
+          ref={iframeRef}
+          className="flex-1 w-full border-0 bg-white"
+          title={title}
+          sandbox="allow-scripts allow-same-origin"
+        />
+      </div>
+    )
+  }
 
   return (
     <div className="h-full flex flex-col">
@@ -213,6 +227,13 @@ export function ReportViewer({
         </div>
         <div className="flex items-center gap-2">
           <button
+            onClick={handleFullscreen}
+            className="flex items-center gap-2 px-3 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition text-sm"
+          >
+            <Maximize2 className="w-4 h-4" />
+            Pantalla completa
+          </button>
+          <button
             onClick={handleDownload}
             className="flex items-center gap-2 px-3 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition text-sm"
           >
@@ -229,60 +250,86 @@ export function ReportViewer({
         </div>
       </div>
 
-      {/* Secciones editables - Panel lateral colapsable */}
+      {/* Panel de notas del equipo (solo para editores) */}
       {canEdit && (
         <div className="bg-gray-50 border-b border-gray-200 p-4">
-          <h3 className="text-sm font-semibold text-gray-700 mb-3">
-            Notas del equipo <span className="font-normal text-gray-500">(se incluiran al final del informe)</span>
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {sections.map((section) => (
-              <div key={section} className="bg-white rounded-lg border border-gray-200 p-3">
-                <div className="flex items-center justify-between mb-2">
-                  <h4 className="text-xs font-medium text-dark">{getSectionLabel(section)}</h4>
-                  {editingSection !== section && (
-                    <button
-                      onClick={() => handleStartEdit(section)}
-                      className="text-xs text-primary hover:underline flex items-center gap-1"
-                    >
-                      <Edit2 className="w-3 h-3" />
-                      {getSectionValue(section) ? 'Editar' : 'Añadir'}
-                    </button>
-                  )}
-                </div>
-                {editingSection === section ? (
-                  <div className="space-y-2">
-                    <textarea
-                      value={editValue}
-                      onChange={(e) => setEditValue(e.target.value)}
-                      className="w-full h-24 p-2 border border-gray-300 rounded text-xs resize-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                      placeholder={`Escribe ${getSectionLabel(section).toLowerCase()}...`}
-                    />
-                    <div className="flex justify-end gap-2">
-                      <button
-                        onClick={() => setEditingSection(null)}
-                        className="px-2 py-1 text-xs text-gray-600 hover:bg-gray-100 rounded"
-                      >
-                        Cancelar
-                      </button>
-                      <button
-                        onClick={handleSaveEdit}
-                        disabled={saving}
-                        className="px-2 py-1 text-xs bg-primary text-white rounded hover:bg-primary-600 disabled:opacity-50 flex items-center gap-1"
-                      >
-                        {saving && <Loader2 className="w-3 h-3 animate-spin" />}
-                        Guardar
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <p className="text-xs text-gray-500 line-clamp-3">
-                    {getSectionValue(section) || <span className="italic">Sin contenido</span>}
-                  </p>
-                )}
-              </div>
-            ))}
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold text-gray-700">
+              Notas del equipo <span className="font-normal text-gray-500">(se incluiran al final del informe)</span>
+            </h3>
+            {!editingNotes && (
+              <button
+                onClick={() => setEditingNotes(true)}
+                className="text-sm text-primary hover:underline flex items-center gap-1"
+              >
+                <Edit2 className="w-3 h-3" />
+                {strengths ? 'Editar notas' : 'Añadir notas'}
+              </button>
+            )}
           </div>
+
+          {editingNotes ? (
+            <div className="bg-white rounded-lg border border-gray-200 p-4 space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Titulo de la seccion
+                </label>
+                <input
+                  type="text"
+                  value={notesTitle}
+                  onChange={(e) => setNotesTitle(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent"
+                  placeholder="Notas del Equipo"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Contenido
+                </label>
+                <textarea
+                  value={notesContent}
+                  onChange={(e) => setNotesContent(e.target.value)}
+                  className="w-full h-32 px-3 py-2 border border-gray-300 rounded-lg text-sm resize-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                  placeholder="Escribe aqui las notas, conclusiones o recomendaciones del equipo..."
+                />
+                <p className="text-xs text-gray-400 mt-1">
+                  Puedes usar saltos de linea para separar parrafos o crear listas.
+                </p>
+              </div>
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => {
+                    setEditingNotes(false)
+                    setNotesTitle(executiveSummary || 'Notas del Equipo')
+                    setNotesContent(strengths || '')
+                  }}
+                  className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleSaveNotes}
+                  disabled={saving}
+                  className="px-3 py-1.5 text-sm bg-primary text-white rounded hover:bg-primary-600 disabled:opacity-50 flex items-center gap-1"
+                >
+                  {saving && <Loader2 className="w-3 h-3 animate-spin" />}
+                  <Save className="w-3 h-3" />
+                  Guardar notas
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-white rounded-lg border border-gray-200 p-4">
+              {strengths ? (
+                <div>
+                  <p className="text-xs font-medium text-primary mb-1">{executiveSummary || 'Notas del Equipo'}</p>
+                  <p className="text-sm text-gray-600 whitespace-pre-wrap line-clamp-4">{strengths}</p>
+                </div>
+              ) : (
+                <p className="text-sm text-gray-400 italic">Sin notas. Haz clic en "Añadir notas" para agregar contenido.</p>
+              )}
+            </div>
+          )}
         </div>
       )}
 
