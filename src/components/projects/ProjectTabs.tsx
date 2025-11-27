@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
@@ -17,6 +17,8 @@ import {
   ThumbsDown,
   X,
   Loader2,
+  LayoutDashboard,
+  RefreshCw,
 } from 'lucide-react'
 import { cn, formatDate } from '@/lib/utils'
 
@@ -45,6 +47,15 @@ interface Proposal {
   priority: string
   status: string
   createdAt: Date
+}
+
+interface Overview {
+  id: string
+  title: string
+  status: string
+  htmlContent: string | null
+  createdAt: Date
+  createdBy: { name: string }
 }
 
 interface ProjectTabsProps {
@@ -94,6 +105,57 @@ export function ProjectTabs({
   // Estado para votar propuestas
   const [votingProposal, setVotingProposal] = useState<string | null>(null)
 
+  // Estado para Overview
+  const [overview, setOverview] = useState<Overview | null>(null)
+  const [loadingOverview, setLoadingOverview] = useState(false)
+  const [generatingOverview, setGeneratingOverview] = useState(false)
+
+  // Cargar overview al montar
+  useEffect(() => {
+    if (!isClient) {
+      fetchOverview()
+    }
+  }, [project.slug, isClient])
+
+  // Polling cuando el overview esta procesando
+  useEffect(() => {
+    if (overview?.status === 'PROCESSING') {
+      const interval = setInterval(fetchOverview, 3000)
+      return () => clearInterval(interval)
+    }
+  }, [overview?.status])
+
+  const fetchOverview = async () => {
+    try {
+      const res = await fetch(`/api/projects/${project.slug}/overview`)
+      if (res.ok) {
+        const data = await res.json()
+        setOverview(data.overview)
+      }
+    } catch (error) {
+      console.error('Error fetching overview:', error)
+    }
+  }
+
+  const handleGenerateOverview = async () => {
+    setGeneratingOverview(true)
+    try {
+      const res = await fetch(`/api/projects/${project.slug}/overview`, {
+        method: 'POST',
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || 'Error al generar')
+      }
+      // Refrescar para mostrar el estado PROCESSING
+      await fetchOverview()
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Error al generar overview')
+    } finally {
+      setGeneratingOverview(false)
+    }
+  }
+
   // Tabs diferentes segun el rol
   const tabs = isClient
     ? [
@@ -111,6 +173,12 @@ export function ProjectTabs({
         },
       ]
     : [
+        {
+          id: 'overview',
+          label: 'Overview',
+          icon: LayoutDashboard,
+          count: 0,
+        },
         {
           id: 'reports',
           label: 'Informes',
@@ -295,6 +363,122 @@ export function ProjectTabs({
       </div>
 
       <div className="p-6">
+        {/* Tab de Overview (solo para admin/consultor) */}
+        {activeTab === 'overview' && !isClient && (
+          <div>
+            {!overview ? (
+              // No hay overview
+              <div className="text-center py-12">
+                <LayoutDashboard className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+                <h3 className="text-lg font-medium text-dark mb-2">Overview del Proyecto</h3>
+                <p className="text-gray-500 mb-6 max-w-md mx-auto">
+                  El Overview es un resumen ejecutivo generado por IA que sintetiza todos los informes,
+                  tendencias y propuestas del proyecto.
+                </p>
+                {visibleReports.filter(r => r.status === 'READY').length === 0 ? (
+                  <p className="text-sm text-amber-600">
+                    Necesitas al menos un informe generado para crear el Overview
+                  </p>
+                ) : (
+                  <button
+                    onClick={handleGenerateOverview}
+                    disabled={generatingOverview}
+                    className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary-600 transition disabled:opacity-50"
+                  >
+                    {generatingOverview ? (
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : (
+                      <LayoutDashboard className="w-5 h-5" />
+                    )}
+                    Generar Overview
+                  </button>
+                )}
+              </div>
+            ) : overview.status === 'PROCESSING' ? (
+              // Overview procesando
+              <div className="text-center py-12">
+                <Loader2 className="w-12 h-12 mx-auto mb-4 text-primary animate-spin" />
+                <h3 className="text-lg font-medium text-dark mb-2">Generando Overview...</h3>
+                <p className="text-gray-500">
+                  Esto puede tardar entre 30 segundos y 1 minuto
+                </p>
+                <p className="text-sm text-gray-400 mt-2">
+                  La página se actualizará automáticamente
+                </p>
+              </div>
+            ) : overview.status === 'READY' ? (
+              // Overview listo
+              <div>
+                <div className="flex items-center justify-between mb-6">
+                  <div>
+                    <h3 className="text-lg font-medium text-dark">{overview.title}</h3>
+                    <p className="text-sm text-gray-500 mt-1">
+                      Generado por {overview.createdBy.name} · {formatDate(overview.createdAt)}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handleGenerateOverview}
+                      disabled={generatingOverview}
+                      className="flex items-center gap-2 px-3 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition text-sm"
+                    >
+                      {generatingOverview ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <RefreshCw className="w-4 h-4" />
+                      )}
+                      Regenerar
+                    </button>
+                    <Link
+                      href={`/projects/${project.slug}/reports/${overview.id}`}
+                      className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-600 transition text-sm"
+                    >
+                      Ver Overview
+                    </Link>
+                  </div>
+                </div>
+
+                {/* Preview del overview */}
+                <div className="border border-gray-200 rounded-lg overflow-hidden bg-white">
+                  <div className="p-4 bg-gray-50 border-b border-gray-200">
+                    <p className="text-sm text-gray-600">
+                      Vista previa del dashboard ejecutivo
+                    </p>
+                  </div>
+                  <div className="h-96 overflow-hidden">
+                    <iframe
+                      srcDoc={overview.htmlContent || ''}
+                      className="w-full h-full border-0 transform scale-75 origin-top-left"
+                      style={{ width: '133%', height: '133%' }}
+                      title="Overview preview"
+                      sandbox="allow-scripts"
+                    />
+                  </div>
+                </div>
+              </div>
+            ) : overview.status === 'ERROR' ? (
+              // Overview con error
+              <div className="text-center py-12">
+                <XCircle className="w-12 h-12 mx-auto mb-4 text-red-500" />
+                <h3 className="text-lg font-medium text-dark mb-2">Error al generar Overview</h3>
+                <p className="text-gray-500 mb-6">Hubo un problema al generar el overview</p>
+                <button
+                  onClick={handleGenerateOverview}
+                  disabled={generatingOverview}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-600 transition disabled:opacity-50"
+                >
+                  {generatingOverview ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="w-4 h-4" />
+                  )}
+                  Reintentar
+                </button>
+              </div>
+            ) : null}
+          </div>
+        )}
+
         {activeTab === 'reports' && (
           <div>
             {canEdit && (
