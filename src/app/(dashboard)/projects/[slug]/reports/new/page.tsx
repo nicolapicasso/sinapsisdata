@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 import Link from 'next/link'
@@ -12,7 +12,6 @@ export default function NewReportPage() {
   const slug = params.slug as string
 
   const [loading, setLoading] = useState(false)
-  const [generating, setGenerating] = useState(false)
   const [error, setError] = useState('')
   const [files, setFiles] = useState<File[]>([])
 
@@ -69,24 +68,20 @@ export default function NewReportPage() {
         }
       }
 
-      // 3. Generar el informe con IA
-      setGenerating(true)
-      const generateRes = await fetch('/api/reports/generate', {
+      // 3. Iniciar generacion en background (NO esperamos)
+      fetch('/api/reports/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reportId: report.id }),
+      }).catch(err => {
+        console.error('Error iniciando generacion:', err)
       })
 
-      if (!generateRes.ok) {
-        // Si falla la generacion, aun asi redirigir al informe
-        console.error('Error generating report')
-      }
-
+      // 4. Redirigir inmediatamente al informe
       router.push(`/projects/${slug}/reports/${report.id}`)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al crear el informe')
       setLoading(false)
-      setGenerating(false)
     }
   }
 
@@ -106,16 +101,6 @@ export default function NewReportPage() {
         {error && (
           <div className="bg-red-50 text-red-600 p-3 rounded-lg mb-6 text-sm">
             {error}
-          </div>
-        )}
-
-        {generating && (
-          <div className="bg-blue-50 text-blue-700 p-4 rounded-lg mb-6 flex items-center gap-3">
-            <Loader2 className="w-5 h-5 animate-spin" />
-            <div>
-              <p className="font-medium">Generando informe con IA...</p>
-              <p className="text-sm">Esto puede tardar unos segundos</p>
-            </div>
           </div>
         )}
 
@@ -220,7 +205,7 @@ export default function NewReportPage() {
               {loading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  {generating ? 'Generando...' : 'Creando...'}
+                  Creando...
                 </>
               ) : (
                 'Crear y Generar Informe'

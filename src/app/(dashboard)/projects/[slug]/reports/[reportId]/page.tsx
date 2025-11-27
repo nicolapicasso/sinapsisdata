@@ -1,54 +1,101 @@
-import { getServerSession } from 'next-auth'
-import { notFound, redirect } from 'next/navigation'
-import { authOptions } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
-import { ReportViewer } from '@/components/reports/ReportViewer'
+'use client'
+
+import { useEffect, useState } from 'react'
+import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Loader2, AlertCircle, RefreshCw } from 'lucide-react'
+import { ReportViewer } from '@/components/reports/ReportViewer'
 
-interface ReportPageProps {
-  params: { slug: string; reportId: string }
+interface Report {
+  id: string
+  title: string
+  description: string | null
+  status: 'DRAFT' | 'PROCESSING' | 'READY' | 'ERROR'
+  htmlContent: string | null
+  errorMessage: string | null
 }
 
-export default async function ReportPage({ params }: ReportPageProps) {
-  const session = await getServerSession(authOptions)
+export default function ReportPage() {
+  const params = useParams()
+  const slug = params.slug as string
+  const reportId = params.reportId as string
 
-  if (!session) {
-    redirect('/login')
-  }
+  const [report, setReport] = useState<Report | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
-  const report = await prisma.report.findUnique({
-    where: { id: params.reportId },
-    include: {
-      project: {
-        include: {
-          members: true,
-        },
-      },
-      createdBy: {
-        select: { name: true },
-      },
-      files: true,
-    },
-  })
-
-  if (!report) {
-    notFound()
-  }
-
-  // Verificar acceso
-  if (session.user.role !== 'ADMIN') {
-    const isMember = report.project.members.some((m) => m.userId === session.user.id)
-    if (!isMember) {
-      redirect('/projects')
+  const fetchReport = async () => {
+    try {
+      const res = await fetch(`/api/reports/${reportId}`)
+      if (!res.ok) {
+        throw new Error('Error al cargar el informe')
+      }
+      const data = await res.json()
+      setReport(data)
+      setError('')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error desconocido')
+    } finally {
+      setLoading(false)
     }
   }
+
+  const handleRetry = async () => {
+    setLoading(true)
+    try {
+      // Reiniciar generacion
+      await fetch('/api/reports/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reportId }),
+      })
+      // Refrescar estado
+      await fetchReport()
+    } catch (err) {
+      console.error('Error retrying:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchReport()
+  }, [reportId])
+
+  // Polling cuando esta procesando
+  useEffect(() => {
+    if (report?.status === 'PROCESSING' || report?.status === 'DRAFT') {
+      const interval = setInterval(fetchReport, 3000) // Cada 3 segundos
+      return () => clearInterval(interval)
+    }
+  }, [report?.status])
+
+  if (loading && !report) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    )
+  }
+
+  if (error && !report) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+          <p className="text-dark">{error}</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!report) return null
 
   return (
     <div className="h-full flex flex-col -m-6">
       <div className="bg-white border-b border-gray-200 px-6 py-4">
         <Link
-          href={`/projects/${params.slug}`}
+          href={`/projects/${slug}`}
           className="inline-flex items-center gap-2 text-gray-500 hover:text-primary mb-3 transition text-sm"
         >
           <ArrowLeft className="w-4 h-4" />
@@ -70,7 +117,7 @@ export default async function ReportPage({ params }: ReportPageProps) {
                 Generado
               </span>
             )}
-            {report.status === 'PROCESSING' && (
+            {(report.status === 'PROCESSING' || report.status === 'DRAFT') && (
               <span className="text-sm text-blue-600 flex items-center gap-2">
                 <Loader2 className="w-4 h-4 animate-spin" />
                 Procesando...
@@ -89,12 +136,13 @@ export default async function ReportPage({ params }: ReportPageProps) {
       <div className="flex-1 bg-gray-100">
         {report.status === 'READY' && report.htmlContent ? (
           <ReportViewer htmlContent={report.htmlContent} title={report.title} />
-        ) : report.status === 'PROCESSING' ? (
+        ) : report.status === 'PROCESSING' || report.status === 'DRAFT' ? (
           <div className="flex items-center justify-center h-full">
             <div className="text-center">
               <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto mb-4" />
-              <p className="text-lg font-medium text-dark">Generando informe...</p>
-              <p className="text-gray-500 mt-1">Esto puede tardar unos segundos</p>
+              <p className="text-lg font-medium text-dark">Generando informe con IA...</p>
+              <p className="text-gray-500 mt-1">Esto puede tardar entre 30 segundos y 1 minuto</p>
+              <p className="text-gray-400 text-sm mt-4">La pagina se actualizara automaticamente</p>
             </div>
           </div>
         ) : report.status === 'ERROR' ? (
@@ -103,19 +151,16 @@ export default async function ReportPage({ params }: ReportPageProps) {
               <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
               <p className="text-lg font-medium text-dark">Error al generar el informe</p>
               <p className="text-gray-500 mt-1">{report.errorMessage || 'Ha ocurrido un error inesperado'}</p>
-              <button className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-600 transition">
+              <button
+                onClick={handleRetry}
+                className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-600 transition"
+              >
                 <RefreshCw className="w-4 h-4" />
                 Reintentar
               </button>
             </div>
           </div>
-        ) : (
-          <div className="flex items-center justify-center h-full">
-            <div className="text-center">
-              <p className="text-gray-500">Este informe aun no ha sido generado</p>
-            </div>
-          </div>
-        )}
+        ) : null}
       </div>
     </div>
   )
