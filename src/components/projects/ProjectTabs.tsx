@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { FileText, MessageSquareMore, Lightbulb, Plus, Clock, CheckCircle, XCircle } from 'lucide-react'
+import { FileText, MessageSquareMore, Lightbulb, Plus, Clock, CheckCircle, XCircle, BookOpen } from 'lucide-react'
 import { cn, formatDate } from '@/lib/utils'
 
 interface Report {
@@ -23,6 +23,7 @@ interface Question {
 interface Proposal {
   id: string
   title: string
+  description: string
   type: string
   priority: string
   status: string
@@ -41,34 +42,67 @@ interface ProjectTabsProps {
   reports: Report[]
   questions: Question[]
   proposals: Proposal[]
+  approvedProposals?: Proposal[]
   canEdit: boolean
+  userRole: 'ADMIN' | 'CONSULTANT' | 'CLIENT'
 }
 
-export function ProjectTabs({ project, reports, questions, proposals, canEdit }: ProjectTabsProps) {
+export function ProjectTabs({
+  project,
+  reports,
+  questions,
+  proposals,
+  approvedProposals = [],
+  canEdit,
+  userRole
+}: ProjectTabsProps) {
+  const isClient = userRole === 'CLIENT'
+
+  // Filtrar informes para clientes: solo mostrar READY
+  const visibleReports = isClient
+    ? reports.filter(r => r.status === 'READY')
+    : reports
+
   const [activeTab, setActiveTab] = useState('reports')
 
-  const tabs = [
-    {
-      id: 'reports',
-      label: 'Informes',
-      icon: FileText,
-      count: project._count.reports,
-    },
-    {
-      id: 'questions',
-      label: 'Preguntas IA',
-      icon: MessageSquareMore,
-      count: project._count.questions,
-      highlight: project._count.questions > 0,
-    },
-    {
-      id: 'proposals',
-      label: 'Propuestas IA',
-      icon: Lightbulb,
-      count: project._count.proposals,
-      highlight: project._count.proposals > 0,
-    },
-  ]
+  // Tabs diferentes segun el rol
+  const tabs = isClient
+    ? [
+        {
+          id: 'reports',
+          label: 'Informes',
+          icon: FileText,
+          count: visibleReports.length,
+        },
+        {
+          id: 'conclusions',
+          label: 'Conclusiones',
+          icon: BookOpen,
+          count: approvedProposals.length,
+        },
+      ]
+    : [
+        {
+          id: 'reports',
+          label: 'Informes',
+          icon: FileText,
+          count: project._count.reports,
+        },
+        {
+          id: 'questions',
+          label: 'Preguntas IA',
+          icon: MessageSquareMore,
+          count: project._count.questions,
+          highlight: project._count.questions > 0,
+        },
+        {
+          id: 'proposals',
+          label: 'Propuestas IA',
+          icon: Lightbulb,
+          count: project._count.proposals,
+          highlight: project._count.proposals > 0,
+        },
+      ]
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -111,6 +145,22 @@ export function ProjectTabs({ project, reports, questions, proposals, canEdit }:
     }
   }
 
+  // Labels amigables para clientes (sin mencionar IA)
+  const getTypeLabelForClient = (type: string) => {
+    switch (type) {
+      case 'ACTION':
+        return <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">Recomendacion</span>
+      case 'INSIGHT':
+        return <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded">Hallazgo</span>
+      case 'RISK':
+        return <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded">Alerta</span>
+      case 'OPPORTUNITY':
+        return <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">Oportunidad</span>
+      default:
+        return null
+    }
+  }
+
   return (
     <div className="bg-white rounded-lg border border-gray-200">
       <div className="border-b border-gray-200">
@@ -132,7 +182,7 @@ export function ProjectTabs({ project, reports, questions, proposals, canEdit }:
                 <span
                   className={cn(
                     'px-2 py-0.5 text-xs rounded-full',
-                    tab.highlight ? 'bg-accent text-white' : 'bg-gray-100 text-gray-600'
+                    'highlight' in tab && tab.highlight ? 'bg-accent text-white' : 'bg-gray-100 text-gray-600'
                   )}
                 >
                   {tab.count}
@@ -158,15 +208,14 @@ export function ProjectTabs({ project, reports, questions, proposals, canEdit }:
               </div>
             )}
 
-            {reports.length === 0 ? (
+            {visibleReports.length === 0 ? (
               <div className="text-center py-12 text-gray-500">
                 <FileText className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                <p>No hay informes todavia</p>
-                {canEdit && <p className="text-sm mt-1">Crea tu primer informe para empezar</p>}
+                <p>No hay informes disponibles</p>
               </div>
             ) : (
               <div className="space-y-3">
-                {reports.map((report) => (
+                {visibleReports.map((report) => (
                   <Link
                     key={report.id}
                     href={`/projects/${project.slug}/reports/${report.id}`}
@@ -176,10 +225,10 @@ export function ProjectTabs({ project, reports, questions, proposals, canEdit }:
                       <div>
                         <h3 className="font-medium text-dark">{report.title}</h3>
                         <p className="text-sm text-gray-500 mt-1">
-                          Por {report.createdBy.name} · {formatDate(report.createdAt)}
+                          {isClient ? formatDate(report.createdAt) : `Por ${report.createdBy.name} · ${formatDate(report.createdAt)}`}
                         </p>
                       </div>
-                      {getStatusBadge(report.status)}
+                      {!isClient && getStatusBadge(report.status)}
                     </div>
                   </Link>
                 ))}
@@ -188,7 +237,42 @@ export function ProjectTabs({ project, reports, questions, proposals, canEdit }:
           </div>
         )}
 
-        {activeTab === 'questions' && (
+        {/* Tab de Conclusiones (solo para clientes) */}
+        {activeTab === 'conclusions' && isClient && (
+          <div>
+            {approvedProposals.length === 0 ? (
+              <div className="text-center py-12 text-gray-500">
+                <BookOpen className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                <p>No hay conclusiones disponibles</p>
+                <p className="text-sm mt-1">Las conclusiones apareceran cuando el equipo las valide</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {approvedProposals.map((proposal) => (
+                  <div
+                    key={proposal.id}
+                    className="p-4 border border-gray-200 rounded-lg bg-gray-50"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          {getTypeLabelForClient(proposal.type)}
+                          {getPriorityBadge(proposal.priority)}
+                        </div>
+                        <h3 className="font-medium text-dark">{proposal.title}</h3>
+                        <p className="text-sm text-gray-600 mt-1">{proposal.description}</p>
+                      </div>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-3">{formatDate(proposal.createdAt)}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Tab de Preguntas IA (solo para admin/consultor) */}
+        {activeTab === 'questions' && !isClient && (
           <div>
             {questions.length === 0 ? (
               <div className="text-center py-12 text-gray-500">
@@ -212,7 +296,8 @@ export function ProjectTabs({ project, reports, questions, proposals, canEdit }:
           </div>
         )}
 
-        {activeTab === 'proposals' && (
+        {/* Tab de Propuestas IA (solo para admin/consultor) */}
+        {activeTab === 'proposals' && !isClient && (
           <div>
             {proposals.length === 0 ? (
               <div className="text-center py-12 text-gray-500">
@@ -234,6 +319,7 @@ export function ProjectTabs({ project, reports, questions, proposals, canEdit }:
                           {getPriorityBadge(proposal.priority)}
                         </div>
                         <h3 className="font-medium text-dark">{proposal.title}</h3>
+                        <p className="text-sm text-gray-600 mt-1">{proposal.description}</p>
                       </div>
                     </div>
                     <p className="text-sm text-gray-500 mt-2">{formatDate(proposal.createdAt)}</p>

@@ -7,6 +7,8 @@ import { Plus, FolderKanban } from 'lucide-react'
 export default async function ProjectsPage() {
   const session = await getServerSession(authOptions)
 
+  const isClient = session?.user.role === 'CLIENT'
+
   const projects = await prisma.project.findMany({
     where: session?.user.role === 'ADMIN'
       ? {}
@@ -136,7 +138,7 @@ export default async function ProjectsPage() {
 
                   <div className="flex gap-3 text-sm">
                     <span className="text-gray-500">{project._count.reports} informes</span>
-                    {project._count.questions > 0 && (
+                    {!isClient && project._count.questions > 0 && (
                       <span className="text-accent font-medium">{project._count.questions} pendientes</span>
                     )}
                   </div>

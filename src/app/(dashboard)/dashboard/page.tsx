@@ -6,6 +6,8 @@ import Link from 'next/link'
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions)
 
+  const isClient = session?.user.role === 'CLIENT'
+
   // Obtener proyectos según el rol del usuario
   const projects = await prisma.project.findMany({
     where: session?.user.role === 'ADMIN'
@@ -83,12 +85,12 @@ export default async function DashboardPage() {
                 <span className="text-gray-500">
                   <span className="font-medium text-dark">{project._count.reports}</span> informes
                 </span>
-                {project._count.questions > 0 && (
+                {!isClient && project._count.questions > 0 && (
                   <span className="text-accent">
                     {project._count.questions} preguntas pendientes
                   </span>
                 )}
-                {project._count.proposals > 0 && (
+                {!isClient && project._count.proposals > 0 && (
                   <span className="text-primary">
                     {project._count.proposals} propuestas
                   </span>

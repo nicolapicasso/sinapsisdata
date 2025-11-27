@@ -42,6 +42,11 @@ export async function GET(
       }
     }
 
+    // Los clientes solo pueden ver informes READY
+    if (session.user.role === 'CLIENT' && report.status !== 'READY') {
+      return NextResponse.json({ error: 'Este informe aun no esta disponible' }, { status: 403 })
+    }
+
     return NextResponse.json(report)
   } catch (error) {
     console.error('Error fetching report:', error)

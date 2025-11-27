@@ -64,8 +64,28 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
     }
   }
 
-  const userRole = project.members.find((m) => m.userId === session.user.id)?.role
-  const canEdit = session.user.role === 'ADMIN' || userRole === 'OWNER' || userRole === 'CONSULTANT'
+  // Obtener propuestas aprobadas para mostrar a clientes
+  const approvedProposals = await prisma.aIProposal.findMany({
+    where: {
+      projectId: project.id,
+      status: 'APPROVED',
+    },
+    orderBy: { createdAt: 'desc' },
+  })
+
+  // Determinar rol del usuario en el proyecto
+  const memberRole = project.members.find((m) => m.userId === session.user.id)?.role
+
+  // El rol efectivo: si es ADMIN del sistema, tiene acceso completo
+  // Si no, usar el rol del miembro en el proyecto
+  const effectiveRole: 'ADMIN' | 'CONSULTANT' | 'CLIENT' =
+    session.user.role === 'ADMIN'
+      ? 'ADMIN'
+      : memberRole === 'OWNER' || memberRole === 'CONSULTANT'
+        ? 'CONSULTANT'
+        : 'CLIENT'
+
+  const canEdit = effectiveRole !== 'CLIENT'
 
   return (
     <div>
@@ -75,7 +95,9 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
         reports={project.reports}
         questions={project.questions}
         proposals={project.proposals}
+        approvedProposals={approvedProposals}
         canEdit={canEdit}
+        userRole={effectiveRole}
       />
     </div>
   )
