@@ -13,6 +13,9 @@ interface ReportViewerProps {
   strengths?: string | null         // Contenido de las notas
   opportunities?: string | null     // No usado (reservado)
   onRefresh?: () => void
+  // Control externo del estado colapsado
+  isCollapsed?: boolean
+  onToggleCollapse?: () => void
 }
 
 export function ReportViewer({
@@ -23,6 +26,8 @@ export function ReportViewer({
   executiveSummary,
   strengths,
   onRefresh,
+  isCollapsed: externalIsCollapsed,
+  onToggleCollapse,
 }: ReportViewerProps) {
   // Ref para el iframe actual (para imprimir)
   const currentIframeRef = useRef<HTMLIFrameElement | null>(null)
@@ -38,8 +43,10 @@ export function ReportViewer({
   const [notesContent, setNotesContent] = useState(strengths || '')
   const [saving, setSaving] = useState(false)
 
-  // Estado para colapsar la barra de herramientas
-  const [isCollapsed, setIsCollapsed] = useState(false)
+  // Estado para colapsar la barra de herramientas (usa externo si está disponible)
+  const [internalIsCollapsed, setInternalIsCollapsed] = useState(false)
+  const isCollapsed = externalIsCollapsed ?? internalIsCollapsed
+  const toggleCollapse = onToggleCollapse ?? (() => setInternalIsCollapsed(!internalIsCollapsed))
 
   // Actualizar estados cuando cambien las props
   useEffect(() => {
@@ -162,7 +169,7 @@ export function ReportViewer({
         /* Barra minimizada */
         <div className="flex items-center justify-between px-4 py-2 bg-gray-100 border-b border-gray-200 shrink-0">
           <button
-            onClick={() => setIsCollapsed(false)}
+            onClick={toggleCollapse}
             className="flex items-center gap-2 text-sm text-gray-600 hover:text-primary transition"
           >
             <ChevronDown className="w-4 h-4" />
@@ -200,7 +207,7 @@ export function ReportViewer({
             </div>
             <div className="flex items-center gap-2">
               <button
-                onClick={() => setIsCollapsed(true)}
+                onClick={toggleCollapse}
                 className="flex items-center gap-2 px-3 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition text-sm"
               >
                 <ChevronUp className="w-4 h-4" />

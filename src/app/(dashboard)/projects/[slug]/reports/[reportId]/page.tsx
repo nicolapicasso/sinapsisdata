@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import Link from 'next/link'
-import { ArrowLeft, Loader2, AlertCircle, RefreshCw, Trash2 } from 'lucide-react'
+import { ArrowLeft, Loader2, AlertCircle, RefreshCw, Trash2, ChevronDown } from 'lucide-react'
 import { ReportViewer } from '@/components/reports/ReportViewer'
 
 interface Report {
@@ -30,8 +30,10 @@ export default function ReportPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [deleting, setDeleting] = useState(false)
+  const [isCollapsed, setIsCollapsed] = useState(false)
 
   const canEdit = session?.user?.role === 'ADMIN' || session?.user?.role === 'CONSULTANT'
+  const toggleCollapse = () => setIsCollapsed(!isCollapsed)
 
   const fetchReport = async () => {
     try {
@@ -125,57 +127,60 @@ export default function ReportPage() {
 
   return (
     <div className="h-full flex flex-col -m-6 min-h-0">
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
-        <Link
-          href={`/projects/${slug}`}
-          className="inline-flex items-center gap-2 text-gray-500 hover:text-primary mb-3 transition text-sm"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Volver al proyecto
-        </Link>
+      {/* Header colapsable */}
+      {!isCollapsed && (
+        <div className="bg-white border-b border-gray-200 px-6 py-4 shrink-0">
+          <Link
+            href={`/projects/${slug}`}
+            className="inline-flex items-center gap-2 text-gray-500 hover:text-primary mb-3 transition text-sm"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Volver al proyecto
+          </Link>
 
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold text-dark">{report.title}</h1>
-            {report.description && (
-              <p className="text-gray-500 text-sm mt-1">{report.description}</p>
-            )}
-          </div>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-xl font-bold text-dark">{report.title}</h1>
+              {report.description && (
+                <p className="text-gray-500 text-sm mt-1">{report.description}</p>
+              )}
+            </div>
 
-          <div className="flex items-center gap-3">
-            {report.status === 'READY' && (
-              <span className="text-sm text-green-600 flex items-center gap-1">
-                <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                Generado
-              </span>
-            )}
-            {(report.status === 'PROCESSING' || report.status === 'DRAFT') && (
-              <span className="text-sm text-blue-600 flex items-center gap-2">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Procesando...
-              </span>
-            )}
-            {report.status === 'ERROR' && (
-              <span className="text-sm text-red-600 flex items-center gap-1">
-                <AlertCircle className="w-4 h-4" />
-                Error
-              </span>
-            )}
-            {canEdit && (
-              <button
-                onClick={handleDelete}
-                disabled={deleting}
-                className="flex items-center gap-1 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 rounded-lg transition disabled:opacity-50"
-              >
-                {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                Eliminar
-              </button>
-            )}
+            <div className="flex items-center gap-3">
+              {report.status === 'READY' && (
+                <span className="text-sm text-green-600 flex items-center gap-1">
+                  <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                  Generado
+                </span>
+              )}
+              {(report.status === 'PROCESSING' || report.status === 'DRAFT') && (
+                <span className="text-sm text-blue-600 flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Procesando...
+                </span>
+              )}
+              {report.status === 'ERROR' && (
+                <span className="text-sm text-red-600 flex items-center gap-1">
+                  <AlertCircle className="w-4 h-4" />
+                  Error
+                </span>
+              )}
+              {canEdit && (
+                <button
+                  onClick={handleDelete}
+                  disabled={deleting}
+                  className="flex items-center gap-1 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 rounded-lg transition disabled:opacity-50"
+                >
+                  {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                  Eliminar
+                </button>
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
-      <div className="flex-1 bg-gray-100">
+      <div className="flex-1 bg-gray-100 min-h-0">
         {report.status === 'READY' && report.htmlContent ? (
           <ReportViewer
             htmlContent={report.htmlContent}
@@ -186,6 +191,8 @@ export default function ReportPage() {
             strengths={report.strengths}
             opportunities={report.opportunities}
             onRefresh={fetchReport}
+            isCollapsed={isCollapsed}
+            onToggleCollapse={toggleCollapse}
           />
         ) : report.status === 'PROCESSING' || report.status === 'DRAFT' ? (
           <div className="flex items-center justify-center h-full">
