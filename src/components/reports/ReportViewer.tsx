@@ -160,16 +160,6 @@ export function ReportViewer({
     setIsFullscreen(false)
   }
 
-  // Componente del visor del informe
-  const ReportContent = () => (
-    <iframe
-      ref={iframeRef}
-      className="flex-1 w-full border-0 bg-white"
-      title={title}
-      sandbox="allow-scripts allow-same-origin"
-    />
-  )
-
   // Modal de pantalla completa
   if (isFullscreen) {
     return (
@@ -211,7 +201,7 @@ export function ReportViewer({
   }
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col min-h-0">
       {/* Toolbar */}
       <div className="flex items-center justify-between gap-2 p-4 bg-white border-b border-gray-200">
         <div className="flex items-center gap-2">

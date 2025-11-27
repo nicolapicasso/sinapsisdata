@@ -124,7 +124,7 @@ export default function ReportPage() {
   if (!report) return null
 
   return (
-    <div className="h-full flex flex-col -m-6">
+    <div className="h-full flex flex-col -m-6 min-h-0">
       <div className="bg-white border-b border-gray-200 px-6 py-4">
         <Link
           href={`/projects/${slug}`}
