@@ -46,87 +46,30 @@ export function ReportViewer({
     setNotesContent(strengths || '')
   }, [executiveSummary, strengths])
 
-  // Generar el HTML combinado con las notas inyectadas y CSS de ajuste
+  // Generar el HTML combinado con las notas inyectadas
   const finalHtml = useMemo(() => {
-    let modifiedHtml = htmlContent
+    // Si no hay contenido de notas, devolver el HTML original
+    if (!strengths) {
+      return htmlContent
+    }
 
-    // CSS para forzar que el contenido se ajuste al viewport
-    const responsiveCss = `
-      <style>
-        html, body {
-          max-width: 100% !important;
-          overflow-x: hidden !important;
-          box-sizing: border-box !important;
-        }
-        *, *::before, *::after {
-          box-sizing: border-box !important;
-          max-width: 100% !important;
-        }
-        img, svg, video, iframe {
-          max-width: 100% !important;
-          height: auto !important;
-        }
-        canvas {
-          max-width: 100% !important;
-        }
-        table {
-          max-width: 100% !important;
-          overflow-x: auto !important;
-          display: block !important;
-        }
-        /* Forzar contenedores de gráficos ECharts y similares */
-        [id*="chart"], [id*="Chart"], [id*="graph"], [id*="Graph"],
-        [class*="chart"], [class*="Chart"], [class*="graph"], [class*="Graph"],
-        [data-zr-dom-id], [class*="echarts"], [id*="echarts"] {
-          max-width: 100% !important;
-          width: 100% !important;
-        }
-        /* Forzar divs con position relative que contengan canvas */
-        div[style*="position: relative"] {
-          max-width: 100% !important;
-          width: 100% !important;
-        }
-        div[style*="position:relative"] {
-          max-width: 100% !important;
-          width: 100% !important;
-        }
-        /* Contenedores de gráficos con anchos fijos */
-        div[style*="width:"] > canvas,
-        div[style*="width: "] > canvas {
-          width: 100% !important;
-          max-width: 100% !important;
-        }
-      </style>
+    const notesTitleText = executiveSummary || 'Notas del Equipo'
+
+    // Crear el bloque de notas personalizadas
+    const customNotesHtml = `
+      <div style="margin-top: 40px; padding: 30px; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border-radius: 12px; border-left: 4px solid #215A6B; page-break-inside: avoid;">
+        <h2 style="color: #215A6B; margin: 0 0 20px 0; font-size: 1.5rem; font-weight: 600;">${notesTitleText}</h2>
+        <div style="color: #4a5568; line-height: 1.8; white-space: pre-wrap;">${strengths}</div>
+      </div>
     `
 
-    // Inyectar CSS responsivo
-    if (modifiedHtml.includes('</head>')) {
-      modifiedHtml = modifiedHtml.replace('</head>', `${responsiveCss}</head>`)
-    } else if (modifiedHtml.includes('<body')) {
-      modifiedHtml = modifiedHtml.replace('<body', `${responsiveCss}<body`)
-    } else {
-      modifiedHtml = responsiveCss + modifiedHtml
+    // Inyectar las notas antes del cierre de </body>
+    if (htmlContent.includes('</body>')) {
+      return htmlContent.replace('</body>', `${customNotesHtml}</body>`)
     }
 
-    // Si hay notas, inyectarlas
-    if (strengths) {
-      const notesTitleText = executiveSummary || 'Notas del Equipo'
-
-      const customNotesHtml = `
-        <div style="margin-top: 40px; padding: 30px; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border-radius: 12px; border-left: 4px solid #215A6B; page-break-inside: avoid;">
-          <h2 style="color: #215A6B; margin: 0 0 20px 0; font-size: 1.5rem; font-weight: 600;">${notesTitleText}</h2>
-          <div style="color: #4a5568; line-height: 1.8; white-space: pre-wrap;">${strengths}</div>
-        </div>
-      `
-
-      if (modifiedHtml.includes('</body>')) {
-        modifiedHtml = modifiedHtml.replace('</body>', `${customNotesHtml}</body>`)
-      } else {
-        modifiedHtml = modifiedHtml + customNotesHtml
-      }
-    }
-
-    return modifiedHtml
+    // Si no tiene </body>, agregar al final
+    return htmlContent + customNotesHtml
   }, [htmlContent, executiveSummary, strengths])
 
   useEffect(() => {
