@@ -19,7 +19,14 @@ export default async function ProjectsPage() {
             },
           },
         },
-    include: {
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      description: true,
+      status: true,
+      logo: true,
+      coverImage: true,
       members: {
         include: {
           user: {
@@ -82,19 +89,36 @@ export default async function ProjectsPage() {
               href={`/projects/${project.slug}`}
               className="bg-white rounded-lg overflow-hidden hover:shadow-lg transition border border-gray-100 group"
             >
-              {project.coverImage ? (
-                <div className="h-32 bg-gray-200">
-                  <img
-                    src={project.coverImage}
-                    alt={project.name}
-                    className="w-full h-full object-cover"
-                  />
+              {/* Cover with centered logo */}
+              <div className="relative">
+                {project.coverImage ? (
+                  <div className="h-28 bg-gray-200">
+                    <img
+                      src={project.coverImage}
+                      alt={project.name}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                ) : (
+                  <div className="h-28 bg-gradient-to-br from-primary to-primary-700" />
+                )}
+                {/* Centered logo */}
+                <div className="absolute inset-0 flex items-center justify-center">
+                  {project.logo ? (
+                    <div className="w-14 h-14 bg-white rounded-xl shadow-lg overflow-hidden p-1">
+                      <img
+                        src={project.logo}
+                        alt={project.name}
+                        className="w-full h-full object-contain"
+                      />
+                    </div>
+                  ) : (
+                    <div className="w-14 h-14 bg-white rounded-xl shadow-lg flex items-center justify-center text-xl font-bold text-primary">
+                      {project.name.charAt(0).toUpperCase()}
+                    </div>
+                  )}
                 </div>
-              ) : (
-                <div className="h-32 bg-gradient-to-br from-primary to-primary-700 flex items-center justify-center">
-                  <FolderKanban className="w-12 h-12 text-white/50" />
-                </div>
-              )}
+              </div>
 
               <div className="p-4">
                 <div className="flex items-start justify-between mb-2">

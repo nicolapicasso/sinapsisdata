@@ -19,7 +19,13 @@ export default async function DashboardPage() {
             },
           },
         },
-    include: {
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      description: true,
+      status: true,
+      logo: true,
       _count: {
         select: {
           reports: true,
@@ -60,41 +66,58 @@ export default async function DashboardPage() {
             <Link
               key={project.id}
               href={`/projects/${project.slug}`}
-              className="bg-white rounded-lg p-6 hover:shadow-md transition border border-gray-100"
+              className="bg-white rounded-lg hover:shadow-md transition border border-gray-100 overflow-hidden"
             >
-              <div className="flex items-start justify-between">
-                <div>
-                  <h3 className="font-semibold text-dark">{project.name}</h3>
-                  <p className="text-sm text-gray-500 mt-1 line-clamp-2">
-                    {project.description || 'Sin descripción'}
-                  </p>
-                </div>
-                <span
-                  className={`text-xs px-2 py-1 rounded-full ${
-                    project.status === 'ACTIVE'
-                      ? 'bg-green-100 text-green-700'
-                      : project.status === 'PAUSED'
-                      ? 'bg-yellow-100 text-yellow-700'
-                      : 'bg-gray-100 text-gray-700'
-                  }`}
-                >
-                  {project.status === 'ACTIVE' ? 'Activo' : project.status === 'PAUSED' ? 'Pausado' : 'Archivado'}
-                </span>
+              {/* Header with logo */}
+              <div className="h-16 bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center">
+                {project.logo ? (
+                  <img
+                    src={project.logo}
+                    alt={project.name}
+                    className="h-10 w-auto object-contain"
+                  />
+                ) : (
+                  <div className="w-10 h-10 bg-white rounded-lg shadow-sm flex items-center justify-center text-lg font-bold text-primary">
+                    {project.name.charAt(0).toUpperCase()}
+                  </div>
+                )}
               </div>
-              <div className="flex gap-4 mt-4 text-sm">
-                <span className="text-gray-500">
-                  <span className="font-medium text-dark">{project._count.reports}</span> informes
-                </span>
-                {!isClient && project._count.questions > 0 && (
-                  <span className="text-accent">
-                    {project._count.questions} preguntas pendientes
+              {/* Content */}
+              <div className="p-4">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h3 className="font-semibold text-dark">{project.name}</h3>
+                    <p className="text-sm text-gray-500 mt-1 line-clamp-2">
+                      {project.description || 'Sin descripción'}
+                    </p>
+                  </div>
+                  <span
+                    className={`text-xs px-2 py-1 rounded-full shrink-0 ${
+                      project.status === 'ACTIVE'
+                        ? 'bg-green-100 text-green-700'
+                        : project.status === 'PAUSED'
+                        ? 'bg-yellow-100 text-yellow-700'
+                        : 'bg-gray-100 text-gray-700'
+                    }`}
+                  >
+                    {project.status === 'ACTIVE' ? 'Activo' : project.status === 'PAUSED' ? 'Pausado' : 'Archivado'}
                   </span>
-                )}
-                {!isClient && project._count.proposals > 0 && (
-                  <span className="text-primary">
-                    {project._count.proposals} propuestas
+                </div>
+                <div className="flex gap-4 mt-4 text-sm">
+                  <span className="text-gray-500">
+                    <span className="font-medium text-dark">{project._count.reports}</span> informes
                   </span>
-                )}
+                  {!isClient && project._count.questions > 0 && (
+                    <span className="text-accent">
+                      {project._count.questions} preguntas pendientes
+                    </span>
+                  )}
+                  {!isClient && project._count.proposals > 0 && (
+                    <span className="text-primary">
+                      {project._count.proposals} propuestas
+                    </span>
+                  )}
+                </div>
               </div>
             </Link>
           ))}
