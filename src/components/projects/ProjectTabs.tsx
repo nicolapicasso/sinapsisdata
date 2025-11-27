@@ -54,7 +54,16 @@ interface Overview {
   title: string
   status: string
   htmlContent: string | null
+  executiveSummary: string | null
+  aiMetadata: {
+    projectStatus?: 'GREEN' | 'YELLOW' | 'RED'
+    model?: string
+    inputTokens?: number
+    outputTokens?: number
+    duration?: number
+  } | null
   createdAt: Date
+  updatedAt: Date
   createdBy: { name: string }
 }
 
@@ -410,11 +419,39 @@ export function ProjectTabs({
               // Overview listo
               <div>
                 <div className="flex items-center justify-between mb-6">
-                  <div>
-                    <h3 className="text-lg font-medium text-dark">{overview.title}</h3>
-                    <p className="text-sm text-gray-500 mt-1">
-                      Generado por {overview.createdBy.name} · {formatDate(overview.createdAt)}
-                    </p>
+                  <div className="flex items-center gap-4">
+                    {/* Badge de estado del proyecto */}
+                    {overview.aiMetadata?.projectStatus && (
+                      <div
+                        className={cn(
+                          'flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium',
+                          overview.aiMetadata.projectStatus === 'GREEN'
+                            ? 'bg-green-100 text-green-700'
+                            : overview.aiMetadata.projectStatus === 'YELLOW'
+                            ? 'bg-yellow-100 text-yellow-700'
+                            : 'bg-red-100 text-red-700'
+                        )}
+                      >
+                        <span>
+                          {overview.aiMetadata.projectStatus === 'GREEN'
+                            ? '🟢'
+                            : overview.aiMetadata.projectStatus === 'YELLOW'
+                            ? '🟡'
+                            : '🔴'}
+                        </span>
+                        {overview.aiMetadata.projectStatus === 'GREEN'
+                          ? 'En buen camino'
+                          : overview.aiMetadata.projectStatus === 'YELLOW'
+                          ? 'Requiere atención'
+                          : 'En riesgo'}
+                      </div>
+                    )}
+                    <div>
+                      <h3 className="text-lg font-medium text-dark">{overview.title}</h3>
+                      <p className="text-sm text-gray-500">
+                        Actualizado: {formatDate(overview.updatedAt || overview.createdAt)}
+                      </p>
+                    </div>
                   </div>
                   <div className="flex items-center gap-2">
                     <button
@@ -437,6 +474,13 @@ export function ProjectTabs({
                     </Link>
                   </div>
                 </div>
+
+                {/* Summary */}
+                {overview.executiveSummary && (
+                  <div className="mb-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                    <p className="text-gray-700">{overview.executiveSummary}</p>
+                  </div>
+                )}
 
                 {/* Preview del overview */}
                 <div className="border border-gray-200 rounded-lg overflow-hidden bg-white">

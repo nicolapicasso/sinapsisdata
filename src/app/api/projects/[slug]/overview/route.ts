@@ -4,7 +4,16 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { generateOverview } from '@/lib/claude'
 
-// GET: Obtener el overview más reciente del proyecto
+// Helper para formatear fecha
+function formatDate(date: Date): string {
+  return date.toLocaleDateString('es-ES', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  })
+}
+
+// GET: Obtener el overview del proyecto
 export async function GET(
   req: NextRequest,
   { params }: { params: { slug: string } }
@@ -24,14 +33,22 @@ export async function GET(
       return NextResponse.json({ error: 'Proyecto no encontrado' }, { status: 404 })
     }
 
-    // Buscar el overview más reciente
+    // Buscar el overview (solo hay uno por proyecto)
     const overview = await prisma.report.findFirst({
       where: {
         projectId: project.id,
         type: 'OVERVIEW',
       },
-      orderBy: { createdAt: 'desc' },
-      include: {
+      orderBy: { updatedAt: 'desc' },
+      select: {
+        id: true,
+        title: true,
+        status: true,
+        htmlContent: true,
+        executiveSummary: true,
+        aiMetadata: true,
+        createdAt: true,
+        updatedAt: true,
         createdBy: {
           select: { id: true, name: true, email: true },
         },
@@ -48,7 +65,7 @@ export async function GET(
   }
 }
 
-// POST: Generar un nuevo overview
+// POST: Generar/regenerar el overview
 export async function POST(
   req: NextRequest,
   { params }: { params: { slug: string } }
@@ -64,6 +81,7 @@ export async function POST(
       return NextResponse.json({ error: 'No tienes permisos' }, { status: 403 })
     }
 
+    // Obtener proyecto con todos los datos necesarios
     const project = await prisma.project.findUnique({
       where: { slug: params.slug },
       include: {
@@ -76,8 +94,10 @@ export async function POST(
           select: {
             id: true,
             title: true,
-            description: true,
             createdAt: true,
+            periodFrom: true,
+            periodTo: true,
+            htmlContent: true,
             executiveSummary: true,
           },
         },
@@ -96,28 +116,48 @@ export async function POST(
       )
     }
 
-    // Crear el registro del overview en estado PROCESSING
-    const overview = await prisma.report.create({
-      data: {
+    // Buscar overview existente o crear uno nuevo
+    let overview = await prisma.report.findFirst({
+      where: {
         projectId: project.id,
-        title: `Overview - ${project.name}`,
-        description: `Resumen ejecutivo del proyecto ${project.name}`,
         type: 'OVERVIEW',
-        status: 'PROCESSING',
-        prompt: 'Generación automática de overview',
-        createdById: session.user.id,
       },
     })
 
-    // Obtener feedback acumulado
+    if (overview) {
+      // Actualizar existente a PROCESSING
+      overview = await prisma.report.update({
+        where: { id: overview.id },
+        data: {
+          status: 'PROCESSING',
+          errorMessage: null,
+          updatedAt: new Date(),
+        },
+      })
+    } else {
+      // Crear nuevo
+      overview = await prisma.report.create({
+        data: {
+          projectId: project.id,
+          title: `Overview - ${project.name}`,
+          description: `Dashboard ejecutivo del proyecto ${project.name}`,
+          type: 'OVERVIEW',
+          status: 'PROCESSING',
+          prompt: 'Generación de overview ejecutivo',
+          createdById: session.user.id,
+        },
+      })
+    }
+
+    // Obtener propuestas y preguntas
     const [approvedProposals, rejectedProposals, answeredQuestions] = await Promise.all([
       prisma.aIProposal.findMany({
         where: { projectId: project.id, status: 'APPROVED' },
-        select: { title: true, description: true },
+        select: { type: true, title: true, description: true, votedAt: true },
       }),
       prisma.aIProposal.findMany({
         where: { projectId: project.id, status: 'REJECTED' },
-        select: { title: true, description: true },
+        select: { title: true },
       }),
       prisma.aIQuestion.findMany({
         where: { projectId: project.id, status: 'ANSWERED' },
@@ -125,86 +165,60 @@ export async function POST(
       }),
     ])
 
-    // Preparar datos de los informes
-    const reportsData = project.reports.map((r) => ({
-      title: r.title,
-      summary: r.executiveSummary || r.description || 'Sin resumen',
-      date: r.createdAt.toISOString().split('T')[0],
-    }))
+    // Preparar datos para la función generateOverview
+    const overviewParams = {
+      project: {
+        name: project.name,
+        description: project.description,
+        aiContext: project.aiContext,
+      },
+      reports: project.reports.map((r) => ({
+        title: r.title,
+        createdAt: formatDate(r.createdAt),
+        periodFrom: r.periodFrom ? formatDate(r.periodFrom) : undefined,
+        periodTo: r.periodTo ? formatDate(r.periodTo) : undefined,
+        htmlContent: r.htmlContent,
+        executiveSummary: r.executiveSummary,
+      })),
+      approvedProposals: approvedProposals.map((p) => ({
+        type: p.type,
+        title: p.title,
+        description: p.description,
+        votedAt: p.votedAt || undefined,
+      })),
+      answeredQuestions: answeredQuestions
+        .filter((q) => q.answer)
+        .map((q) => ({
+          question: q.question,
+          answer: q.answer!,
+        })),
+      rejectedProposalTitles: rejectedProposals.map((p) => p.title),
+    }
 
     // Generar overview con IA (async)
-    generateOverview(
-      project.aiContext || project.description || `Proyecto: ${project.name}`,
-      reportsData,
-      {
-        approvedProposals,
-        rejectedProposals,
-        answeredQuestions: answeredQuestions
-          .filter((q) => q.answer)
-          .map((q) => ({ question: q.question, answer: q.answer! })),
-      }
-    )
+    const overviewId = overview.id
+    generateOverview(overviewParams)
       .then(async (result) => {
         // Actualizar overview con el resultado
         await prisma.report.update({
-          where: { id: overview.id },
+          where: { id: overviewId },
           data: {
             status: 'READY',
             htmlContent: result.html,
-            aiMetadata: result.metadata as object,
+            executiveSummary: result.summary,
+            aiMetadata: {
+              ...result.metadata,
+              projectStatus: result.projectStatus,
+            },
           },
         })
 
-        // Filtrar preguntas válidas (deben tener question definido)
-        const validQuestions = result.questions.filter(
-          (q) => q && typeof q.question === 'string' && q.question.trim().length > 0
-        )
-
-        // Crear nuevas preguntas si las hay
-        if (validQuestions.length > 0) {
-          await prisma.aIQuestion.createMany({
-            data: validQuestions.map((q) => ({
-              projectId: project.id,
-              reportId: overview.id,
-              question: q.question,
-              context: q.context || '',
-            })),
-          })
-        }
-
-        // Filtrar propuestas válidas (deben tener title y description)
-        const validProposals = result.proposals.filter(
-          (p) =>
-            p &&
-            typeof p.title === 'string' &&
-            p.title.trim().length > 0 &&
-            typeof p.description === 'string' &&
-            p.description.trim().length > 0
-        )
-
-        // Crear nuevas propuestas si las hay
-        if (validProposals.length > 0) {
-          const validTypes = ['ACTION', 'INSIGHT', 'RISK', 'OPPORTUNITY']
-          const validPriorities = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']
-
-          await prisma.aIProposal.createMany({
-            data: validProposals.map((p) => ({
-              projectId: project.id,
-              reportId: overview.id,
-              type: (validTypes.includes(p.type) ? p.type : 'INSIGHT') as 'ACTION' | 'INSIGHT' | 'RISK' | 'OPPORTUNITY',
-              title: p.title,
-              description: p.description,
-              priority: (validPriorities.includes(p.priority) ? p.priority : 'MEDIUM') as 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL',
-            })),
-          })
-        }
-
-        console.log(`[Overview] Generado exitosamente para proyecto ${project.slug}`)
+        console.log(`[Overview] Generado exitosamente para proyecto ${project.slug} - Status: ${result.projectStatus}`)
       })
       .catch(async (error) => {
         console.error('[Overview] Error generando:', error)
         await prisma.report.update({
-          where: { id: overview.id },
+          where: { id: overviewId },
           data: {
             status: 'ERROR',
             errorMessage: error instanceof Error ? error.message : 'Error desconocido',
