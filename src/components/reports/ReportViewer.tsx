@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { Download, Printer, Wand2, Save, X, Edit2, Loader2 } from 'lucide-react'
 
 interface ReportViewerProps {
@@ -36,16 +36,60 @@ export function ReportViewer({
   const [editValue, setEditValue] = useState('')
   const [saving, setSaving] = useState(false)
 
+  // Generar el HTML combinado con las secciones editables inyectadas
+  const finalHtml = useMemo(() => {
+    // Si no hay ninguna seccion personalizada, devolver el HTML original
+    if (!executiveSummary && !strengths && !opportunities) {
+      return htmlContent
+    }
+
+    // Crear el bloque de secciones personalizadas
+    const customSectionsHtml = `
+      <div style="margin-top: 40px; padding: 30px; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border-radius: 12px; border-left: 4px solid #215A6B;">
+        <h2 style="color: #215A6B; margin: 0 0 20px 0; font-size: 1.5rem; font-weight: 600;">Notas del Equipo</h2>
+
+        ${executiveSummary ? `
+          <div style="margin-bottom: 20px;">
+            <h3 style="color: #1A1A1A; margin: 0 0 10px 0; font-size: 1.1rem; font-weight: 600;">Resumen Ejecutivo</h3>
+            <p style="color: #4a5568; margin: 0; line-height: 1.6; white-space: pre-wrap;">${executiveSummary}</p>
+          </div>
+        ` : ''}
+
+        ${strengths ? `
+          <div style="margin-bottom: 20px;">
+            <h3 style="color: #1A1A1A; margin: 0 0 10px 0; font-size: 1.1rem; font-weight: 600;">Fortalezas Identificadas</h3>
+            <p style="color: #4a5568; margin: 0; line-height: 1.6; white-space: pre-wrap;">${strengths}</p>
+          </div>
+        ` : ''}
+
+        ${opportunities ? `
+          <div style="margin-bottom: 0;">
+            <h3 style="color: #1A1A1A; margin: 0 0 10px 0; font-size: 1.1rem; font-weight: 600;">Oportunidades de Mejora</h3>
+            <p style="color: #4a5568; margin: 0; line-height: 1.6; white-space: pre-wrap;">${opportunities}</p>
+          </div>
+        ` : ''}
+      </div>
+    `
+
+    // Inyectar las secciones antes del cierre de </body>
+    if (htmlContent.includes('</body>')) {
+      return htmlContent.replace('</body>', `${customSectionsHtml}</body>`)
+    }
+
+    // Si no tiene </body>, agregar al final
+    return htmlContent + customSectionsHtml
+  }, [htmlContent, executiveSummary, strengths, opportunities])
+
   useEffect(() => {
     if (iframeRef.current) {
       const doc = iframeRef.current.contentDocument
       if (doc) {
         doc.open()
-        doc.write(htmlContent)
+        doc.write(finalHtml)
         doc.close()
       }
     }
-  }, [htmlContent])
+  }, [finalHtml])
 
   const handlePrint = () => {
     if (iframeRef.current?.contentWindow) {
@@ -54,7 +98,8 @@ export function ReportViewer({
   }
 
   const handleDownload = () => {
-    const blob = new Blob([htmlContent], { type: 'text/html' })
+    // Descargar el HTML con las secciones personalizadas incluidas
+    const blob = new Blob([finalHtml], { type: 'text/html' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
@@ -133,6 +178,24 @@ export function ReportViewer({
     }
   }
 
+  const getSectionLabel = (section: 'summary' | 'strengths' | 'opportunities') => {
+    switch (section) {
+      case 'summary': return 'Resumen Ejecutivo'
+      case 'strengths': return 'Fortalezas Identificadas'
+      case 'opportunities': return 'Oportunidades de Mejora'
+    }
+  }
+
+  const getSectionValue = (section: 'summary' | 'strengths' | 'opportunities') => {
+    switch (section) {
+      case 'summary': return executiveSummary
+      case 'strengths': return strengths
+      case 'opportunities': return opportunities
+    }
+  }
+
+  const sections: ('summary' | 'strengths' | 'opportunities')[] = ['summary', 'strengths', 'opportunities']
+
   return (
     <div className="h-full flex flex-col">
       {/* Toolbar */}
@@ -166,150 +229,59 @@ export function ReportViewer({
         </div>
       </div>
 
-      {/* Secciones editables */}
+      {/* Secciones editables - Panel lateral colapsable */}
       {canEdit && (
-        <div className="bg-gray-50 border-b border-gray-200 p-4 space-y-4">
-          <h3 className="text-sm font-semibold text-gray-700">Secciones editables</h3>
-
-          {/* Resumen Ejecutivo */}
-          <div className="bg-white rounded-lg border border-gray-200 p-4">
-            <div className="flex items-center justify-between mb-2">
-              <h4 className="text-sm font-medium text-dark">Resumen Ejecutivo</h4>
-              {editingSection !== 'summary' && (
-                <button
-                  onClick={() => handleStartEdit('summary')}
-                  className="text-sm text-primary hover:underline flex items-center gap-1"
-                >
-                  <Edit2 className="w-3 h-3" />
-                  Editar
-                </button>
-              )}
-            </div>
-            {editingSection === 'summary' ? (
-              <div className="space-y-2">
-                <textarea
-                  value={editValue}
-                  onChange={(e) => setEditValue(e.target.value)}
-                  className="w-full h-32 p-3 border border-gray-300 rounded-lg text-sm resize-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                  placeholder="Escribe el resumen ejecutivo..."
-                />
-                <div className="flex justify-end gap-2">
-                  <button
-                    onClick={() => setEditingSection(null)}
-                    className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    onClick={handleSaveEdit}
-                    disabled={saving}
-                    className="px-3 py-1.5 text-sm bg-primary text-white rounded hover:bg-primary-600 disabled:opacity-50 flex items-center gap-1"
-                  >
-                    {saving && <Loader2 className="w-3 h-3 animate-spin" />}
-                    <Save className="w-3 h-3" />
-                    Guardar
-                  </button>
+        <div className="bg-gray-50 border-b border-gray-200 p-4">
+          <h3 className="text-sm font-semibold text-gray-700 mb-3">
+            Notas del equipo <span className="font-normal text-gray-500">(se incluiran al final del informe)</span>
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {sections.map((section) => (
+              <div key={section} className="bg-white rounded-lg border border-gray-200 p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-xs font-medium text-dark">{getSectionLabel(section)}</h4>
+                  {editingSection !== section && (
+                    <button
+                      onClick={() => handleStartEdit(section)}
+                      className="text-xs text-primary hover:underline flex items-center gap-1"
+                    >
+                      <Edit2 className="w-3 h-3" />
+                      {getSectionValue(section) ? 'Editar' : 'Añadir'}
+                    </button>
+                  )}
                 </div>
+                {editingSection === section ? (
+                  <div className="space-y-2">
+                    <textarea
+                      value={editValue}
+                      onChange={(e) => setEditValue(e.target.value)}
+                      className="w-full h-24 p-2 border border-gray-300 rounded text-xs resize-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                      placeholder={`Escribe ${getSectionLabel(section).toLowerCase()}...`}
+                    />
+                    <div className="flex justify-end gap-2">
+                      <button
+                        onClick={() => setEditingSection(null)}
+                        className="px-2 py-1 text-xs text-gray-600 hover:bg-gray-100 rounded"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        onClick={handleSaveEdit}
+                        disabled={saving}
+                        className="px-2 py-1 text-xs bg-primary text-white rounded hover:bg-primary-600 disabled:opacity-50 flex items-center gap-1"
+                      >
+                        {saving && <Loader2 className="w-3 h-3 animate-spin" />}
+                        Guardar
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-500 line-clamp-3">
+                    {getSectionValue(section) || <span className="italic">Sin contenido</span>}
+                  </p>
+                )}
               </div>
-            ) : (
-              <p className="text-sm text-gray-600">
-                {executiveSummary || <span className="italic text-gray-400">Sin personalizar (se usa el del informe)</span>}
-              </p>
-            )}
-          </div>
-
-          {/* Fortalezas */}
-          <div className="bg-white rounded-lg border border-gray-200 p-4">
-            <div className="flex items-center justify-between mb-2">
-              <h4 className="text-sm font-medium text-dark">Fortalezas Identificadas</h4>
-              {editingSection !== 'strengths' && (
-                <button
-                  onClick={() => handleStartEdit('strengths')}
-                  className="text-sm text-primary hover:underline flex items-center gap-1"
-                >
-                  <Edit2 className="w-3 h-3" />
-                  Editar
-                </button>
-              )}
-            </div>
-            {editingSection === 'strengths' ? (
-              <div className="space-y-2">
-                <textarea
-                  value={editValue}
-                  onChange={(e) => setEditValue(e.target.value)}
-                  className="w-full h-32 p-3 border border-gray-300 rounded-lg text-sm resize-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                  placeholder="Escribe las fortalezas identificadas..."
-                />
-                <div className="flex justify-end gap-2">
-                  <button
-                    onClick={() => setEditingSection(null)}
-                    className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    onClick={handleSaveEdit}
-                    disabled={saving}
-                    className="px-3 py-1.5 text-sm bg-primary text-white rounded hover:bg-primary-600 disabled:opacity-50 flex items-center gap-1"
-                  >
-                    {saving && <Loader2 className="w-3 h-3 animate-spin" />}
-                    <Save className="w-3 h-3" />
-                    Guardar
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <p className="text-sm text-gray-600">
-                {strengths || <span className="italic text-gray-400">Sin personalizar (se usa el del informe)</span>}
-              </p>
-            )}
-          </div>
-
-          {/* Oportunidades */}
-          <div className="bg-white rounded-lg border border-gray-200 p-4">
-            <div className="flex items-center justify-between mb-2">
-              <h4 className="text-sm font-medium text-dark">Oportunidades de Mejora</h4>
-              {editingSection !== 'opportunities' && (
-                <button
-                  onClick={() => handleStartEdit('opportunities')}
-                  className="text-sm text-primary hover:underline flex items-center gap-1"
-                >
-                  <Edit2 className="w-3 h-3" />
-                  Editar
-                </button>
-              )}
-            </div>
-            {editingSection === 'opportunities' ? (
-              <div className="space-y-2">
-                <textarea
-                  value={editValue}
-                  onChange={(e) => setEditValue(e.target.value)}
-                  className="w-full h-32 p-3 border border-gray-300 rounded-lg text-sm resize-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                  placeholder="Escribe las oportunidades de mejora..."
-                />
-                <div className="flex justify-end gap-2">
-                  <button
-                    onClick={() => setEditingSection(null)}
-                    className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    onClick={handleSaveEdit}
-                    disabled={saving}
-                    className="px-3 py-1.5 text-sm bg-primary text-white rounded hover:bg-primary-600 disabled:opacity-50 flex items-center gap-1"
-                  >
-                    {saving && <Loader2 className="w-3 h-3 animate-spin" />}
-                    <Save className="w-3 h-3" />
-                    Guardar
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <p className="text-sm text-gray-600">
-                {opportunities || <span className="italic text-gray-400">Sin personalizar (se usa el del informe)</span>}
-              </p>
-            )}
+            ))}
           </div>
         </div>
       )}
