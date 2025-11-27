@@ -155,28 +155,46 @@ export async function POST(
           },
         })
 
+        // Filtrar preguntas válidas (deben tener question definido)
+        const validQuestions = result.questions.filter(
+          (q) => q && typeof q.question === 'string' && q.question.trim().length > 0
+        )
+
         // Crear nuevas preguntas si las hay
-        if (result.questions.length > 0) {
+        if (validQuestions.length > 0) {
           await prisma.aIQuestion.createMany({
-            data: result.questions.map((q) => ({
+            data: validQuestions.map((q) => ({
               projectId: project.id,
               reportId: overview.id,
               question: q.question,
-              context: q.context,
+              context: q.context || '',
             })),
           })
         }
 
+        // Filtrar propuestas válidas (deben tener title y description)
+        const validProposals = result.proposals.filter(
+          (p) =>
+            p &&
+            typeof p.title === 'string' &&
+            p.title.trim().length > 0 &&
+            typeof p.description === 'string' &&
+            p.description.trim().length > 0
+        )
+
         // Crear nuevas propuestas si las hay
-        if (result.proposals.length > 0) {
+        if (validProposals.length > 0) {
+          const validTypes = ['ACTION', 'INSIGHT', 'RISK', 'OPPORTUNITY']
+          const validPriorities = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']
+
           await prisma.aIProposal.createMany({
-            data: result.proposals.map((p) => ({
+            data: validProposals.map((p) => ({
               projectId: project.id,
               reportId: overview.id,
-              type: p.type as 'ACTION' | 'INSIGHT' | 'RISK' | 'OPPORTUNITY',
+              type: (validTypes.includes(p.type) ? p.type : 'INSIGHT') as 'ACTION' | 'INSIGHT' | 'RISK' | 'OPPORTUNITY',
               title: p.title,
               description: p.description,
-              priority: p.priority as 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL',
+              priority: (validPriorities.includes(p.priority) ? p.priority : 'MEDIUM') as 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL',
             })),
           })
         }
