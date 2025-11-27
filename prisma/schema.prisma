@@ -128,6 +128,11 @@ model Report {
   // HTML generado por IA
   htmlContent String?      @db.LongText
 
+  // Secciones editables (sobrescriben las del HTML si tienen valor)
+  executiveSummary  String?  @db.Text  // Resumen ejecutivo editable
+  strengths         String?  @db.Text  // Fortalezas identificadas
+  opportunities     String?  @db.Text  // Oportunidades de mejora
+
   // Metadata de la generación
   aiMetadata  Json?        // {model, tokens, duration, etc.}
 

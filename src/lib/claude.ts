@@ -157,6 +157,81 @@ Genera el informe siguiendo las instrucciones. Responde SOLO con JSON válido, s
   }
 }
 
+// Función para refinar/modificar un informe existente
+export async function refineReport(params: {
+  currentHtml: string
+  refinementPrompt: string
+  projectContext?: string
+}): Promise<{ html: string; metadata: { model: string; inputTokens: number; outputTokens: number; duration: number } }> {
+  const startTime = Date.now()
+
+  const systemPrompt = `Eres un analista de datos experto de la agencia We're Sinapsis.
+Tu trabajo es MODIFICAR un informe HTML existente basándote en las instrucciones del usuario.
+
+REGLAS:
+1. Mantén la estructura general y estilos del informe original
+2. Aplica SOLO los cambios solicitados
+3. No elimines secciones a menos que se pida explícitamente
+4. Mantén los gráficos ECharts funcionando
+5. Respeta la paleta de colores: Primario #215A6B, Acento #F8AE00
+
+IMPORTANTE: Responde SOLO con el HTML modificado completo (sin bloques de código markdown, sin explicaciones).`
+
+  const userPrompt = `
+${params.projectContext ? `CONTEXTO DEL PROYECTO:\n${params.projectContext}\n\n` : ''}
+INFORME HTML ACTUAL:
+${params.currentHtml}
+
+CAMBIOS SOLICITADOS:
+${params.refinementPrompt}
+
+Aplica los cambios y devuelve el HTML completo modificado. Solo el HTML, sin explicaciones ni bloques de código.`
+
+  console.log('[Claude] Iniciando refinamiento de informe...')
+
+  const response = await anthropic.messages.create({
+    model: 'claude-sonnet-4-20250514',
+    max_tokens: 16000,
+    messages: [
+      { role: 'user', content: userPrompt }
+    ],
+    system: systemPrompt,
+  })
+
+  const duration = Date.now() - startTime
+  console.log(`[Claude] Refinamiento completado en ${duration}ms`)
+
+  const content = response.content[0]
+
+  if (content.type !== 'text') {
+    throw new Error('Respuesta inesperada de Claude')
+  }
+
+  // Extraer HTML (puede venir envuelto en bloques de código)
+  let html = content.text.trim()
+
+  // Remover bloques de código markdown si los hay
+  const htmlBlockMatch = html.match(/```(?:html)?\s*([\s\S]*?)```/)
+  if (htmlBlockMatch) {
+    html = htmlBlockMatch[1].trim()
+  }
+
+  // Validar que parece HTML
+  if (!html.includes('<!DOCTYPE') && !html.includes('<html') && !html.includes('<div')) {
+    throw new Error('La respuesta no parece contener HTML válido')
+  }
+
+  return {
+    html,
+    metadata: {
+      model: response.model,
+      inputTokens: response.usage.input_tokens,
+      outputTokens: response.usage.output_tokens,
+      duration,
+    },
+  }
+}
+
 export async function generateOverview(
   projectContext: string,
   allReportsData: { title: string; summary: string; date: string }[],

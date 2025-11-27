@@ -6,17 +6,18 @@ import { prisma } from '@/lib/prisma'
 // GET - Obtener informe
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
+    const { id } = await params
 
     if (!session) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
     }
 
     const report = await prisma.report.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         project: {
           include: {
@@ -54,20 +55,81 @@ export async function GET(
   }
 }
 
-// DELETE - Eliminar informe
-export async function DELETE(
+// PATCH - Actualizar campos editables
+export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
+    const { id } = await params
+
+    if (!session) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+    }
+
+    // Solo admin y consultores pueden editar
+    if (session.user.role === 'CLIENT') {
+      return NextResponse.json({ error: 'No tienes permisos para editar informes' }, { status: 403 })
+    }
+
+    const body = await req.json()
+    const { executiveSummary, strengths, opportunities } = body
+
+    const report = await prisma.report.findUnique({
+      where: { id },
+      include: {
+        project: {
+          include: {
+            members: true,
+          },
+        },
+      },
+    })
+
+    if (!report) {
+      return NextResponse.json({ error: 'Informe no encontrado' }, { status: 404 })
+    }
+
+    // Verificar acceso al proyecto
+    if (session.user.role !== 'ADMIN') {
+      const isMember = report.project.members.some((m) => m.userId === session.user.id)
+      if (!isMember) {
+        return NextResponse.json({ error: 'No tienes acceso a este proyecto' }, { status: 403 })
+      }
+    }
+
+    const updated = await prisma.report.update({
+      where: { id },
+      data: {
+        executiveSummary: executiveSummary !== undefined ? executiveSummary : undefined,
+        strengths: strengths !== undefined ? strengths : undefined,
+        opportunities: opportunities !== undefined ? opportunities : undefined,
+      },
+    })
+
+    return NextResponse.json(updated)
+  } catch (error) {
+    console.error('Error updating report:', error)
+    return NextResponse.json({ error: 'Error interno' }, { status: 500 })
+  }
+}
+
+// DELETE - Eliminar informe
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await getServerSession(authOptions)
+    const { id } = await params
 
     if (!session) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
     }
 
     const report = await prisma.report.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         project: {
           include: {
@@ -91,7 +153,7 @@ export async function DELETE(
     }
 
     await prisma.report.delete({
-      where: { id: params.id },
+      where: { id },
     })
 
     return NextResponse.json({ success: true })

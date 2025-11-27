@@ -1,8 +1,23 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { FileText, MessageSquareMore, Lightbulb, Plus, Clock, CheckCircle, XCircle, BookOpen } from 'lucide-react'
+import {
+  FileText,
+  MessageSquareMore,
+  Lightbulb,
+  Plus,
+  Clock,
+  CheckCircle,
+  XCircle,
+  BookOpen,
+  Send,
+  ThumbsUp,
+  ThumbsDown,
+  X,
+  Loader2,
+} from 'lucide-react'
 import { cn, formatDate } from '@/lib/utils'
 
 interface Report {
@@ -16,7 +31,9 @@ interface Report {
 interface Question {
   id: string
   question: string
+  context: string | null
   status: string
+  answer: string | null
   createdAt: Date
 }
 
@@ -54,16 +71,28 @@ export function ProjectTabs({
   proposals,
   approvedProposals = [],
   canEdit,
-  userRole
+  userRole,
 }: ProjectTabsProps) {
+  const router = useRouter()
   const isClient = userRole === 'CLIENT'
 
   // Filtrar informes para clientes: solo mostrar READY
-  const visibleReports = isClient
-    ? reports.filter(r => r.status === 'READY')
-    : reports
+  const visibleReports = isClient ? reports.filter((r) => r.status === 'READY') : reports
+
+  // Filtrar preguntas y propuestas pendientes
+  const pendingQuestions = questions.filter((q) => q.status === 'PENDING')
+  const answeredQuestions = questions.filter((q) => q.status === 'ANSWERED')
+  const pendingProposals = proposals.filter((p) => p.status === 'PENDING')
 
   const [activeTab, setActiveTab] = useState('reports')
+
+  // Estado para responder preguntas
+  const [answeringQuestion, setAnsweringQuestion] = useState<string | null>(null)
+  const [answerText, setAnswerText] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+
+  // Estado para votar propuestas
+  const [votingProposal, setVotingProposal] = useState<string | null>(null)
 
   // Tabs diferentes segun el rol
   const tabs = isClient
@@ -92,26 +121,38 @@ export function ProjectTabs({
           id: 'questions',
           label: 'Preguntas IA',
           icon: MessageSquareMore,
-          count: project._count.questions,
-          highlight: project._count.questions > 0,
+          count: pendingQuestions.length,
+          highlight: pendingQuestions.length > 0,
         },
         {
           id: 'proposals',
           label: 'Propuestas IA',
           icon: Lightbulb,
-          count: project._count.proposals,
-          highlight: project._count.proposals > 0,
+          count: pendingProposals.length,
+          highlight: pendingProposals.length > 0,
         },
       ]
 
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'READY':
-        return <span className="flex items-center gap-1 text-xs text-green-600"><CheckCircle className="w-3 h-3" /> Listo</span>
+        return (
+          <span className="flex items-center gap-1 text-xs text-green-600">
+            <CheckCircle className="w-3 h-3" /> Listo
+          </span>
+        )
       case 'PROCESSING':
-        return <span className="flex items-center gap-1 text-xs text-blue-600"><Clock className="w-3 h-3" /> Procesando</span>
+        return (
+          <span className="flex items-center gap-1 text-xs text-blue-600">
+            <Clock className="w-3 h-3" /> Procesando
+          </span>
+        )
       case 'ERROR':
-        return <span className="flex items-center gap-1 text-xs text-red-600"><XCircle className="w-3 h-3" /> Error</span>
+        return (
+          <span className="flex items-center gap-1 text-xs text-red-600">
+            <XCircle className="w-3 h-3" /> Error
+          </span>
+        )
       default:
         return <span className="text-xs text-gray-500">Borrador</span>
     }
@@ -145,7 +186,6 @@ export function ProjectTabs({
     }
   }
 
-  // Labels amigables para clientes (sin mencionar IA)
   const getTypeLabelForClient = (type: string) => {
     switch (type) {
       case 'ACTION':
@@ -158,6 +198,67 @@ export function ProjectTabs({
         return <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">Oportunidad</span>
       default:
         return null
+    }
+  }
+
+  const handleAnswerQuestion = async (questionId: string) => {
+    if (!answerText.trim()) return
+
+    setSubmitting(true)
+    try {
+      const res = await fetch(`/api/questions/${questionId}/answer`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ answer: answerText }),
+      })
+
+      if (!res.ok) throw new Error('Error al responder')
+
+      setAnsweringQuestion(null)
+      setAnswerText('')
+      router.refresh()
+    } catch (error) {
+      alert('Error al enviar la respuesta')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleDismissQuestion = async (questionId: string) => {
+    if (!confirm('¿Descartar esta pregunta?')) return
+
+    setSubmitting(true)
+    try {
+      const res = await fetch(`/api/questions/${questionId}/dismiss`, {
+        method: 'POST',
+      })
+
+      if (!res.ok) throw new Error('Error al descartar')
+
+      router.refresh()
+    } catch (error) {
+      alert('Error al descartar la pregunta')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleVoteProposal = async (proposalId: string, action: 'approve' | 'reject') => {
+    setVotingProposal(proposalId)
+    try {
+      const res = await fetch(`/api/proposals/${proposalId}/vote`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action }),
+      })
+
+      if (!res.ok) throw new Error('Error al votar')
+
+      router.refresh()
+    } catch (error) {
+      alert('Error al procesar el voto')
+    } finally {
+      setVotingProposal(null)
     }
   }
 
@@ -225,7 +326,9 @@ export function ProjectTabs({
                       <div>
                         <h3 className="font-medium text-dark">{report.title}</h3>
                         <p className="text-sm text-gray-500 mt-1">
-                          {isClient ? formatDate(report.createdAt) : `Por ${report.createdBy.name} · ${formatDate(report.createdAt)}`}
+                          {isClient
+                            ? formatDate(report.createdAt)
+                            : `Por ${report.createdBy.name} · ${formatDate(report.createdAt)}`}
                         </p>
                       </div>
                       {!isClient && getStatusBadge(report.status)}
@@ -249,10 +352,7 @@ export function ProjectTabs({
             ) : (
               <div className="space-y-4">
                 {approvedProposals.map((proposal) => (
-                  <div
-                    key={proposal.id}
-                    className="p-4 border border-gray-200 rounded-lg bg-gray-50"
-                  >
+                  <div key={proposal.id} className="p-4 border border-gray-200 rounded-lg bg-gray-50">
                     <div className="flex items-start gap-3">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-2">
@@ -274,23 +374,107 @@ export function ProjectTabs({
         {/* Tab de Preguntas IA (solo para admin/consultor) */}
         {activeTab === 'questions' && !isClient && (
           <div>
-            {questions.length === 0 ? (
+            {pendingQuestions.length === 0 && answeredQuestions.length === 0 ? (
               <div className="text-center py-12 text-gray-500">
                 <MessageSquareMore className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                <p>No hay preguntas pendientes</p>
+                <p>No hay preguntas</p>
                 <p className="text-sm mt-1">Las preguntas apareceran cuando la IA necesite mas informacion</p>
               </div>
             ) : (
-              <div className="space-y-3">
-                {questions.map((question) => (
-                  <div
-                    key={question.id}
-                    className="p-4 border border-gray-200 rounded-lg"
-                  >
-                    <p className="text-dark">{question.question}</p>
-                    <p className="text-sm text-gray-500 mt-2">{formatDate(question.createdAt)}</p>
+              <div className="space-y-6">
+                {/* Preguntas pendientes */}
+                {pendingQuestions.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-700 mb-3">Pendientes de responder</h3>
+                    <div className="space-y-3">
+                      {pendingQuestions.map((question) => (
+                        <div
+                          key={question.id}
+                          className="p-4 border border-accent/30 bg-accent/5 rounded-lg"
+                        >
+                          <p className="text-dark font-medium">{question.question}</p>
+                          {question.context && (
+                            <p className="text-sm text-gray-500 mt-1 italic">{question.context}</p>
+                          )}
+                          <p className="text-xs text-gray-400 mt-2">{formatDate(question.createdAt)}</p>
+
+                          {answeringQuestion === question.id ? (
+                            <div className="mt-4 space-y-3">
+                              <textarea
+                                value={answerText}
+                                onChange={(e) => setAnswerText(e.target.value)}
+                                placeholder="Escribe tu respuesta..."
+                                className="w-full p-3 border border-gray-300 rounded-lg text-sm resize-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                                rows={3}
+                              />
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => handleAnswerQuestion(question.id)}
+                                  disabled={submitting || !answerText.trim()}
+                                  className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-600 transition disabled:opacity-50 text-sm"
+                                >
+                                  {submitting ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                  ) : (
+                                    <Send className="w-4 h-4" />
+                                  )}
+                                  Enviar respuesta
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setAnsweringQuestion(null)
+                                    setAnswerText('')
+                                  }}
+                                  className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition text-sm"
+                                >
+                                  Cancelar
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="mt-3 flex gap-2">
+                              <button
+                                onClick={() => setAnsweringQuestion(question.id)}
+                                className="flex items-center gap-1 px-3 py-1.5 bg-primary text-white rounded text-sm hover:bg-primary-600 transition"
+                              >
+                                <Send className="w-3 h-3" />
+                                Responder
+                              </button>
+                              <button
+                                onClick={() => handleDismissQuestion(question.id)}
+                                disabled={submitting}
+                                className="flex items-center gap-1 px-3 py-1.5 text-gray-500 hover:bg-gray-100 rounded text-sm transition"
+                              >
+                                <X className="w-3 h-3" />
+                                Descartar
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                ))}
+                )}
+
+                {/* Preguntas respondidas */}
+                {answeredQuestions.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-700 mb-3">Respondidas</h3>
+                    <div className="space-y-3">
+                      {answeredQuestions.map((question) => (
+                        <div key={question.id} className="p-4 border border-gray-200 rounded-lg bg-gray-50">
+                          <p className="text-dark">{question.question}</p>
+                          {question.answer && (
+                            <div className="mt-2 p-3 bg-white rounded border-l-4 border-green-500">
+                              <p className="text-sm text-gray-700">{question.answer}</p>
+                            </div>
+                          )}
+                          <p className="text-xs text-gray-400 mt-2">{formatDate(question.createdAt)}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -299,22 +483,19 @@ export function ProjectTabs({
         {/* Tab de Propuestas IA (solo para admin/consultor) */}
         {activeTab === 'proposals' && !isClient && (
           <div>
-            {proposals.length === 0 ? (
+            {pendingProposals.length === 0 ? (
               <div className="text-center py-12 text-gray-500">
                 <Lightbulb className="w-12 h-12 mx-auto mb-3 text-gray-300" />
                 <p>No hay propuestas pendientes</p>
                 <p className="text-sm mt-1">Las propuestas apareceran al generar informes</p>
               </div>
             ) : (
-              <div className="space-y-3">
-                {proposals.map((proposal) => (
-                  <div
-                    key={proposal.id}
-                    className="p-4 border border-gray-200 rounded-lg"
-                  >
+              <div className="space-y-4">
+                {pendingProposals.map((proposal) => (
+                  <div key={proposal.id} className="p-4 border border-gray-200 rounded-lg">
                     <div className="flex items-start justify-between">
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
                           {getTypeBadge(proposal.type)}
                           {getPriorityBadge(proposal.priority)}
                         </div>
@@ -322,7 +503,34 @@ export function ProjectTabs({
                         <p className="text-sm text-gray-600 mt-1">{proposal.description}</p>
                       </div>
                     </div>
-                    <p className="text-sm text-gray-500 mt-2">{formatDate(proposal.createdAt)}</p>
+                    <p className="text-xs text-gray-400 mt-2">{formatDate(proposal.createdAt)}</p>
+
+                    <div className="mt-4 flex gap-2">
+                      <button
+                        onClick={() => handleVoteProposal(proposal.id, 'approve')}
+                        disabled={votingProposal === proposal.id}
+                        className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition disabled:opacity-50 text-sm"
+                      >
+                        {votingProposal === proposal.id ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <ThumbsUp className="w-4 h-4" />
+                        )}
+                        Aprobar
+                      </button>
+                      <button
+                        onClick={() => handleVoteProposal(proposal.id, 'reject')}
+                        disabled={votingProposal === proposal.id}
+                        className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition disabled:opacity-50 text-sm"
+                      >
+                        {votingProposal === proposal.id ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <ThumbsDown className="w-4 h-4" />
+                        )}
+                        Rechazar
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>

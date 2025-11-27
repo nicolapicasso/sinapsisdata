@@ -154,16 +154,39 @@ export async function DELETE(
   try {
     const session = await getServerSession(authOptions)
 
-    if (!session || session.user.role !== 'ADMIN') {
+    if (!session) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+    }
+
+    // Solo admin o consultores pueden eliminar
+    if (session.user.role === 'CLIENT') {
+      return NextResponse.json({ error: 'No tienes permisos para eliminar proyectos' }, { status: 403 })
+    }
+
+    const { confirmation } = await req.json()
+
+    // Requiere confirmacion escrita
+    if (confirmation !== 'ELIMINAR') {
+      return NextResponse.json({ error: 'Confirmacion incorrecta' }, { status: 400 })
     }
 
     const project = await prisma.project.findUnique({
       where: { slug: params.slug },
+      include: {
+        members: true,
+      },
     })
 
     if (!project) {
       return NextResponse.json({ error: 'Proyecto no encontrado' }, { status: 404 })
+    }
+
+    // Verificar permisos (ADMIN o OWNER del proyecto)
+    const isOwner = project.members.some(
+      (m) => m.userId === session.user.id && m.role === 'OWNER'
+    )
+    if (session.user.role !== 'ADMIN' && !isOwner) {
+      return NextResponse.json({ error: 'Solo el propietario o admin puede eliminar el proyecto' }, { status: 403 })
     }
 
     await prisma.project.delete({

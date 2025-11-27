@@ -1,9 +1,10 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
+import { useSession } from 'next-auth/react'
 import Link from 'next/link'
-import { ArrowLeft, Loader2, AlertCircle, RefreshCw } from 'lucide-react'
+import { ArrowLeft, Loader2, AlertCircle, RefreshCw, Trash2 } from 'lucide-react'
 import { ReportViewer } from '@/components/reports/ReportViewer'
 
 interface Report {
@@ -13,16 +14,24 @@ interface Report {
   status: 'DRAFT' | 'PROCESSING' | 'READY' | 'ERROR'
   htmlContent: string | null
   errorMessage: string | null
+  executiveSummary: string | null
+  strengths: string | null
+  opportunities: string | null
 }
 
 export default function ReportPage() {
   const params = useParams()
+  const router = useRouter()
+  const { data: session } = useSession()
   const slug = params.slug as string
   const reportId = params.reportId as string
 
   const [report, setReport] = useState<Report | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [deleting, setDeleting] = useState(false)
+
+  const canEdit = session?.user?.role === 'ADMIN' || session?.user?.role === 'CONSULTANT'
 
   const fetchReport = async () => {
     try {
@@ -55,6 +64,29 @@ export default function ReportPage() {
       console.error('Error retrying:', err)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!confirm('¿Estas seguro de que quieres eliminar este informe? Esta accion no se puede deshacer.')) {
+      return
+    }
+
+    setDeleting(true)
+    try {
+      const res = await fetch(`/api/reports/${reportId}`, {
+        method: 'DELETE',
+      })
+
+      if (!res.ok) {
+        throw new Error('Error al eliminar')
+      }
+
+      router.push(`/projects/${slug}`)
+    } catch (err) {
+      alert('Error al eliminar el informe')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -129,13 +161,32 @@ export default function ReportPage() {
                 Error
               </span>
             )}
+            {canEdit && (
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="flex items-center gap-1 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 rounded-lg transition disabled:opacity-50"
+              >
+                {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                Eliminar
+              </button>
+            )}
           </div>
         </div>
       </div>
 
       <div className="flex-1 bg-gray-100">
         {report.status === 'READY' && report.htmlContent ? (
-          <ReportViewer htmlContent={report.htmlContent} title={report.title} />
+          <ReportViewer
+            htmlContent={report.htmlContent}
+            title={report.title}
+            reportId={report.id}
+            canEdit={canEdit}
+            executiveSummary={report.executiveSummary}
+            strengths={report.strengths}
+            opportunities={report.opportunities}
+            onRefresh={fetchReport}
+          />
         ) : report.status === 'PROCESSING' || report.status === 'DRAFT' ? (
           <div className="flex items-center justify-center h-full">
             <div className="text-center">
