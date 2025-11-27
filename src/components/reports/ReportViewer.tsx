@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
-import { Download, Printer, Wand2, Save, X, Edit2, Loader2, Maximize2, Minimize2 } from 'lucide-react'
+import { Download, Printer, Wand2, Save, X, Edit2, Loader2, ChevronUp, ChevronDown } from 'lucide-react'
 
 interface ReportViewerProps {
   htmlContent: string
@@ -25,7 +25,7 @@ export function ReportViewer({
   onRefresh,
 }: ReportViewerProps) {
   // Ref para el iframe actual (para imprimir)
-  const currentIframeRef = useRef<HTMLIFrameElement>(null)
+  const currentIframeRef = useRef<HTMLIFrameElement | null>(null)
 
   // Estados para pedir cambios
   const [showRefineModal, setShowRefineModal] = useState(false)
@@ -38,8 +38,8 @@ export function ReportViewer({
   const [notesContent, setNotesContent] = useState(strengths || '')
   const [saving, setSaving] = useState(false)
 
-  // Estado para pantalla completa
-  const [isFullscreen, setIsFullscreen] = useState(false)
+  // Estado para colapsar la barra de herramientas
+  const [isCollapsed, setIsCollapsed] = useState(false)
 
   // Actualizar estados cuando cambien las props
   useEffect(() => {
@@ -155,97 +155,73 @@ export function ReportViewer({
     }
   }
 
-  const handleFullscreen = () => {
-    setIsFullscreen(true)
-  }
-
-  const handleExitFullscreen = () => {
-    setIsFullscreen(false)
-  }
-
-  // Modal de pantalla completa
-  if (isFullscreen) {
-    return (
-      <div className="fixed inset-0 bg-white z-50 flex flex-col">
-        <div className="flex items-center justify-between p-4 bg-gray-100 border-b shrink-0">
-          <h2 className="font-semibold text-dark">{title}</h2>
+  return (
+    <div className="h-full flex flex-col min-h-0">
+      {/* Barra colapsable */}
+      {isCollapsed ? (
+        /* Barra minimizada */
+        <div className="flex items-center justify-between px-4 py-2 bg-gray-100 border-b border-gray-200 shrink-0">
+          <button
+            onClick={() => setIsCollapsed(false)}
+            className="flex items-center gap-2 text-sm text-gray-600 hover:text-primary transition"
+          >
+            <ChevronDown className="w-4 h-4" />
+            Mostrar herramientas
+          </button>
           <div className="flex items-center gap-2">
             <button
               onClick={handleDownload}
-              className="flex items-center gap-2 px-3 py-2 text-gray-600 hover:bg-gray-200 rounded-lg transition text-sm"
+              className="flex items-center gap-1 px-2 py-1 text-gray-600 hover:bg-gray-200 rounded transition text-sm"
             >
               <Download className="w-4 h-4" />
-              Descargar
             </button>
             <button
               onClick={handlePrint}
-              className="flex items-center gap-2 px-3 py-2 bg-primary text-white rounded-lg hover:bg-primary-600 transition text-sm"
+              className="flex items-center gap-1 px-2 py-1 bg-primary text-white rounded hover:bg-primary-600 transition text-sm"
             >
               <Printer className="w-4 h-4" />
-              Imprimir
-            </button>
-            <button
-              onClick={handleExitFullscreen}
-              className="flex items-center gap-2 px-3 py-2 text-gray-600 hover:bg-gray-200 rounded-lg transition text-sm"
-            >
-              <Minimize2 className="w-4 h-4" />
-              Salir
             </button>
           </div>
         </div>
-        <div className="flex-1 overflow-auto min-h-0">
-          <iframe
-            key="fullscreen-iframe"
-            ref={iframeRefCallback}
-            className="w-full h-full border-0 bg-white"
-            style={{ minHeight: '100%' }}
-            title={title}
-            sandbox="allow-scripts allow-same-origin"
-          />
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <div className="h-full flex flex-col min-h-0">
-      {/* Toolbar */}
-      <div className="flex items-center justify-between gap-2 p-4 bg-white border-b border-gray-200">
-        <div className="flex items-center gap-2">
-          {canEdit && (
-            <button
-              onClick={() => setShowRefineModal(true)}
-              className="flex items-center gap-2 px-3 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition text-sm"
-            >
-              <Wand2 className="w-4 h-4" />
-              Pedir cambios a la IA
-            </button>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleFullscreen}
-            className="flex items-center gap-2 px-3 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition text-sm"
-          >
-            <Maximize2 className="w-4 h-4" />
-            Pantalla completa
-          </button>
-          <button
-            onClick={handleDownload}
-            className="flex items-center gap-2 px-3 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition text-sm"
-          >
-            <Download className="w-4 h-4" />
-            Descargar HTML
-          </button>
-          <button
-            onClick={handlePrint}
-            className="flex items-center gap-2 px-3 py-2 bg-primary text-white rounded-lg hover:bg-primary-600 transition text-sm"
-          >
-            <Printer className="w-4 h-4" />
-            Imprimir / PDF
-          </button>
-        </div>
-      </div>
+      ) : (
+        /* Barra expandida */
+        <>
+          <div className="flex items-center justify-between gap-2 p-4 bg-white border-b border-gray-200 shrink-0">
+            <div className="flex items-center gap-2">
+              {canEdit && (
+                <button
+                  onClick={() => setShowRefineModal(true)}
+                  className="flex items-center gap-2 px-3 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition text-sm"
+                >
+                  <Wand2 className="w-4 h-4" />
+                  Pedir cambios a la IA
+                </button>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setIsCollapsed(true)}
+                className="flex items-center gap-2 px-3 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition text-sm"
+              >
+                <ChevronUp className="w-4 h-4" />
+                Ocultar
+              </button>
+              <button
+                onClick={handleDownload}
+                className="flex items-center gap-2 px-3 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition text-sm"
+              >
+                <Download className="w-4 h-4" />
+                Descargar HTML
+              </button>
+              <button
+                onClick={handlePrint}
+                className="flex items-center gap-2 px-3 py-2 bg-primary text-white rounded-lg hover:bg-primary-600 transition text-sm"
+              >
+                <Printer className="w-4 h-4" />
+                Imprimir / PDF
+              </button>
+            </div>
+          </div>
 
       {/* Panel de notas del equipo (solo para editores) */}
       {canEdit && (
@@ -328,6 +304,8 @@ export function ReportViewer({
             </div>
           )}
         </div>
+      )}
+        </>
       )}
 
       {/* Iframe del informe */}
