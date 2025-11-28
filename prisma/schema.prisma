@@ -1,0 +1,306 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// USUARIOS
+// ============================================
+
+enum UserRole {
+  ADMIN
+  CONSULTANT
+  CLIENT
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  password      String
+  name          String
+  avatar        String?
+  role          UserRole  @default(CLIENT)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relaciones
+  projectMembers  ProjectMember[]
+  createdReports  Report[]         @relation("ReportCreator")
+  answeredQuestions AIQuestion[]   @relation("QuestionAnswerer")
+  votedProposals    AIProposal[]   @relation("ProposalVoter")
+
+  @@map("users")
+}
+
+// ============================================
+// PROYECTOS
+// ============================================
+
+enum ProjectStatus {
+  ACTIVE
+  PAUSED
+  ARCHIVED
+}
+
+model Project {
+  id            String        @id @default(cuid())
+  name          String
+  slug          String        @unique
+  description   String?       @db.Text
+  logo          String?
+  coverImage    String?
+  websiteUrl    String?
+  mondayBoardUrl String?
+
+  // Redes sociales (JSON)
+  socialLinks   Json?         // {instagram, youtube, facebook, linkedin, twitter}
+
+  // Contexto para IA
+  aiContext     String?       @db.Text
+
+  status        ProjectStatus @default(ACTIVE)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  // Relaciones
+  members       ProjectMember[]
+  reports       Report[]
+  questions     AIQuestion[]
+  proposals     AIProposal[]
+  dataSources   DataSource[]
+
+  @@map("projects")
+}
+
+enum ProjectMemberRole {
+  OWNER
+  CONSULTANT
+  CLIENT
+}
+
+model ProjectMember {
+  id        String            @id @default(cuid())
+  projectId String
+  userId    String
+  role      ProjectMemberRole @default(CLIENT)
+  createdAt DateTime          @default(now())
+
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@map("project_members")
+}
+
+// ============================================
+// INFORMES
+// ============================================
+
+enum ReportType {
+  CUSTOM
+  OVERVIEW
+}
+
+enum ReportStatus {
+  DRAFT
+  PROCESSING
+  READY
+  ERROR
+}
+
+model Report {
+  id          String       @id @default(cuid())
+  projectId   String
+  title       String
+  description String?      @db.Text
+  type        ReportType   @default(CUSTOM)
+  status      ReportStatus @default(DRAFT)
+
+  // Prompt e instrucciones para IA
+  prompt      String       @db.Text
+
+  // HTML generado por IA
+  htmlContent String?      @db.LongText
+
+  // Secciones editables (sobrescriben las del HTML si tienen valor)
+  executiveSummary  String?  @db.Text  // Resumen ejecutivo editable
+  strengths         String?  @db.Text  // Fortalezas identificadas
+  opportunities     String?  @db.Text  // Oportunidades de mejora
+
+  // Metadata de la generación
+  aiMetadata  Json?        // {model, tokens, duration, etc.}
+
+  // Período del informe
+  periodFrom  DateTime?
+  periodTo    DateTime?
+
+  // Error si falló
+  errorMessage String?     @db.Text
+
+  createdById String
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  // Relaciones
+  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy   User         @relation("ReportCreator", fields: [createdById], references: [id])
+  files       ReportFile[]
+  questions   AIQuestion[]
+  proposals   AIProposal[]
+
+  @@map("reports")
+}
+
+model ReportFile {
+  id           String   @id @default(cuid())
+  reportId     String
+  filename     String   // Nombre en storage
+  originalName String   // Nombre original
+  mimeType     String
+  size         Int
+  path         String   // Ruta completa en storage
+
+  // Datos parseados del CSV
+  parsedData   Json?    @db.Json
+
+  // Metadatos extraídos
+  columns      Json?    // Columnas detectadas
+  rowCount     Int?     // Número de filas
+
+  createdAt    DateTime @default(now())
+
+  report       Report   @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@map("report_files")
+}
+
+// ============================================
+// SISTEMA DE FEEDBACK IA
+// ============================================
+
+enum QuestionStatus {
+  PENDING
+  ANSWERED
+  DISMISSED
+}
+
+model AIQuestion {
+  id           String         @id @default(cuid())
+  projectId    String
+  reportId     String?
+
+  question     String         @db.Text
+  context      String?        @db.Text  // Por qué la IA hace esta pregunta
+
+  answer       String?        @db.Text
+  answeredById String?
+  answeredAt   DateTime?
+
+  status       QuestionStatus @default(PENDING)
+  createdAt    DateTime       @default(now())
+
+  project      Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  report       Report?  @relation(fields: [reportId], references: [id], onDelete: SetNull)
+  answeredBy   User?    @relation("QuestionAnswerer", fields: [answeredById], references: [id])
+
+  @@map("ai_questions")
+}
+
+enum ProposalType {
+  ACTION      // Propuesta de acción
+  INSIGHT     // Insight/descubrimiento
+  RISK        // Riesgo detectado
+  OPPORTUNITY // Oportunidad
+}
+
+enum ProposalPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum ProposalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model AIProposal {
+  id          String           @id @default(cuid())
+  projectId   String
+  reportId    String?
+
+  type        ProposalType
+  title       String
+  description String           @db.Text
+  priority    ProposalPriority @default(MEDIUM)
+
+  // Datos adicionales según el tipo
+  metadata    Json?            // {suggestedActions, metrics, etc.}
+
+  status      ProposalStatus   @default(PENDING)
+  votedById   String?
+  votedAt     DateTime?
+  voteComment String?          @db.Text  // Comentario del voto
+
+  createdAt   DateTime         @default(now())
+
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  report      Report?  @relation(fields: [reportId], references: [id], onDelete: SetNull)
+  votedBy     User?    @relation("ProposalVoter", fields: [votedById], references: [id])
+
+  @@map("ai_proposals")
+}
+
+// ============================================
+// FUENTES DE DATOS (Fase 2 - Opcional)
+// ============================================
+
+enum DataSourceType {
+  GOOGLE_ANALYTICS
+  GOOGLE_ADS
+  GOOGLE_MERCHANT
+  META_ADS
+  INSTAGRAM
+  YOUTUBE
+  CUSTOM_API
+}
+
+enum DataSourceStatus {
+  CONNECTED
+  ERROR
+  EXPIRED
+  PENDING
+}
+
+model DataSource {
+  id          String           @id @default(cuid())
+  projectId   String
+
+  type        DataSourceType
+  name        String           // Nombre descriptivo
+
+  // Credenciales (encriptadas)
+  credentials String           @db.Text
+
+  // Configuración específica
+  config      Json?
+
+  status      DataSourceStatus @default(PENDING)
+  lastSyncAt  DateTime?
+  lastError   String?          @db.Text
+
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  project     Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("data_sources")
+}
