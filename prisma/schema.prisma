@@ -5,7 +5,7 @@ generator client {
 }
 
 datasource db {
-  provider = "mysql"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -52,7 +52,7 @@ model Project {
   id            String        @id @default(cuid())
   name          String
   slug          String        @unique
-  description   String?       @db.Text
+  description   String?
   logo          String?
   coverImage    String?
   websiteUrl    String?
@@ -62,7 +62,7 @@ model Project {
   socialLinks   Json?         // {instagram, youtube, facebook, linkedin, twitter}
 
   // Contexto para IA
-  aiContext     String?       @db.Text
+  aiContext     String?
 
   status        ProjectStatus @default(ACTIVE)
   createdAt     DateTime      @default(now())
@@ -118,20 +118,20 @@ model Report {
   id          String       @id @default(cuid())
   projectId   String
   title       String
-  description String?      @db.Text
+  description String?
   type        ReportType   @default(CUSTOM)
   status      ReportStatus @default(DRAFT)
 
   // Prompt e instrucciones para IA
-  prompt      String       @db.Text
+  prompt      String
 
   // HTML generado por IA
-  htmlContent String?      @db.LongText
+  htmlContent String?
 
   // Secciones editables (sobrescriben las del HTML si tienen valor)
-  executiveSummary  String?  @db.Text  // Resumen ejecutivo editable
-  strengths         String?  @db.Text  // Fortalezas identificadas
-  opportunities     String?  @db.Text  // Oportunidades de mejora
+  executiveSummary  String?  // Resumen ejecutivo editable
+  strengths         String?  // Fortalezas identificadas
+  opportunities     String?  // Oportunidades de mejora
 
   // Metadata de la generación
   aiMetadata  Json?        // {model, tokens, duration, etc.}
@@ -141,7 +141,7 @@ model Report {
   periodTo    DateTime?
 
   // Error si falló
-  errorMessage String?     @db.Text
+  errorMessage String?
 
   createdById String
   createdAt   DateTime     @default(now())
@@ -167,7 +167,7 @@ model ReportFile {
   path         String   // Ruta completa en storage
 
   // Datos parseados del CSV
-  parsedData   Json?    @db.Json
+  parsedData   Json?
 
   // Metadatos extraídos
   columns      Json?    // Columnas detectadas
@@ -195,10 +195,10 @@ model AIQuestion {
   projectId    String
   reportId     String?
 
-  question     String         @db.Text
-  context      String?        @db.Text  // Por qué la IA hace esta pregunta
+  question     String
+  context      String?        // Por qué la IA hace esta pregunta
 
-  answer       String?        @db.Text
+  answer       String?
   answeredById String?
   answeredAt   DateTime?
 
@@ -239,7 +239,7 @@ model AIProposal {
 
   type        ProposalType
   title       String
-  description String           @db.Text
+  description String
   priority    ProposalPriority @default(MEDIUM)
 
   // Datos adicionales según el tipo
@@ -248,7 +248,7 @@ model AIProposal {
   status      ProposalStatus   @default(PENDING)
   votedById   String?
   votedAt     DateTime?
-  voteComment String?          @db.Text  // Comentario del voto
+  voteComment String?          // Comentario del voto
 
   createdAt   DateTime         @default(now())
 
@@ -288,14 +288,14 @@ model DataSource {
   name        String           // Nombre descriptivo
 
   // Credenciales (encriptadas)
-  credentials String           @db.Text
+  credentials String
 
   // Configuración específica
   config      Json?
 
   status      DataSourceStatus @default(PENDING)
   lastSyncAt  DateTime?
-  lastError   String?          @db.Text
+  lastError   String?
 
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
