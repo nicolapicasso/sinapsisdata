@@ -155,7 +155,7 @@ export function ReportViewer({
 
       setEditingNotes(false)
       onRefresh?.()
-    } catch (error) {
+    } catch {
       alert('Error al guardar las notas')
     } finally {
       setSaving(false)
@@ -306,7 +306,7 @@ export function ReportViewer({
                   <p className="text-sm text-gray-600 whitespace-pre-wrap line-clamp-4">{strengths}</p>
                 </div>
               ) : (
-                <p className="text-sm text-gray-400 italic">Sin notas. Haz clic en "Añadir notas" para agregar contenido.</p>
+                <p className="text-sm text-gray-400 italic">Sin notas. Haz clic en &quot;Añadir notas&quot; para agregar contenido.</p>
               )}
             </div>
           )}

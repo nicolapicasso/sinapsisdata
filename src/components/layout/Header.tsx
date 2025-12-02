@@ -1,7 +1,7 @@
 'use client'
 
 import { signOut } from 'next-auth/react'
-import { LogOut, User, ChevronDown } from 'lucide-react'
+import { LogOut, ChevronDown } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 
 interface HeaderProps {
@@ -51,6 +51,7 @@ export function Header({ user }: HeaderProps) {
           </div>
           <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center text-white font-medium">
             {user.avatar ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
               <img src={user.avatar} alt={user.name} className="w-full h-full rounded-full object-cover" />
             ) : (
               user.name?.charAt(0).toUpperCase()

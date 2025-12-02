@@ -71,6 +71,7 @@ export default async function DashboardPage() {
               {/* Header with logo */}
               <div className="h-16 bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center">
                 {project.logo ? (
+                  /* eslint-disable-next-line @next/next/no-img-element */
                   <img
                     src={project.logo}
                     alt={project.name}

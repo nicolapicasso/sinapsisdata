@@ -114,7 +114,7 @@ export default function ProjectSettingsPage() {
       setSocialLinks(data.socialLinks || {})
       setAiContext(data.aiContext || '')
       setStatus(data.status)
-    } catch (err) {
+    } catch {
       setError('Error al cargar el proyecto')
     } finally {
       setLoading(false)
@@ -354,7 +354,8 @@ export default function ProjectSettingsPage() {
                   />
                   {logo && (
                     <div className="mt-2 w-16 h-16 rounded-lg border border-gray-200 overflow-hidden bg-gray-50">
-                      <img src={logo} alt="Logo" className="w-full h-full object-contain" />
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={logo} alt="Logo preview" className="w-full h-full object-contain" />
                     </div>
                   )}
                 </div>
@@ -372,7 +373,8 @@ export default function ProjectSettingsPage() {
                   />
                   {coverImage && (
                     <div className="mt-2 w-full h-20 rounded-lg border border-gray-200 overflow-hidden bg-gray-50">
-                      <img src={coverImage} alt="Portada" className="w-full h-full object-cover" />
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={coverImage} alt="Cover preview" className="w-full h-full object-cover" />
                     </div>
                   )}
                 </div>
