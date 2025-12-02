@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma'
 import { generateReport } from '@/lib/claude'
 import { parseCSV } from '@/lib/csv-parser'
 import { readFile } from 'fs/promises'
+import { Prisma } from '@prisma/client'
 
 export async function POST(req: NextRequest) {
   try {
@@ -46,8 +47,8 @@ export async function POST(req: NextRequest) {
           await prisma.reportFile.update({
             where: { id: file.id },
             data: {
-              parsedData: parsed.data,
-              columns: parsed.columns,
+              parsedData: parsed.data as unknown as Prisma.JsonArray,
+              columns: parsed.columns as unknown as Prisma.JsonArray,
               rowCount: parsed.rowCount,
             },
           })
