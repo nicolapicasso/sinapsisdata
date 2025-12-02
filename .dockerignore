@@ -1,0 +1,44 @@
+# Dependencies
+node_modules
+npm-debug.log*
+
+# Next.js build output
+.next
+out
+
+# Environment files (se pasan como variables)
+.env
+.env.*
+!.env.example
+
+# Git
+.git
+.gitignore
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testing
+coverage
+.nyc_output
+
+# Docker
+Dockerfile
+docker-compose*.yml
+.dockerignore
+
+# Docs and misc
+README.md
+*.md
+LICENSE
+
+# Uploads locales (se montan como volumen)
+uploads/*
+!uploads/.gitkeep
