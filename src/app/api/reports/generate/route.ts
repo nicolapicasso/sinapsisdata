@@ -134,7 +134,7 @@ export async function POST(req: NextRequest) {
           title: p.title,
           description: p.description,
           priority: p.priority,
-          metadata: p.metadata,
+          metadata: p.metadata as Prisma.InputJsonValue | undefined,
         })),
       })
     }
