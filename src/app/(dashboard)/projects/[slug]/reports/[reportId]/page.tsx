@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import Link from 'next/link'
-import { ArrowLeft, Loader2, AlertCircle, RefreshCw, Trash2, ChevronDown } from 'lucide-react'
+import { ArrowLeft, Loader2, AlertCircle, RefreshCw, Trash2 } from 'lucide-react'
 import { ReportViewer } from '@/components/reports/ReportViewer'
 
 interface Report {
@@ -85,7 +85,7 @@ export default function ReportPage() {
       }
 
       router.push(`/projects/${slug}`)
-    } catch (err) {
+    } catch {
       alert('Error al eliminar el informe')
     } finally {
       setDeleting(false)

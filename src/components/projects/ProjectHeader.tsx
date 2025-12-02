@@ -3,7 +3,6 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import Image from 'next/image'
 import { ArrowLeft, Settings, Globe, ExternalLink, Trash2, Loader2, AlertTriangle, Calendar } from 'lucide-react'
 
 interface SocialLinks {
@@ -81,6 +80,7 @@ export function ProjectHeader({ project, canEdit }: ProjectHeaderProps) {
         <div className="relative">
           {project.coverImage ? (
             <div className="h-40 bg-gray-200">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={project.coverImage}
                 alt={project.name}
@@ -95,6 +95,7 @@ export function ProjectHeader({ project, canEdit }: ProjectHeaderProps) {
           <div className="absolute -bottom-10 left-6">
             {project.logo ? (
               <div className="w-20 h-20 bg-white rounded-xl shadow-lg border-4 border-white overflow-hidden">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={project.logo}
                   alt={project.name}

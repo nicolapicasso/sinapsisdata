@@ -93,6 +93,7 @@ export default async function ProjectsPage() {
               <div className="relative">
                 {project.coverImage ? (
                   <div className="h-28 bg-gray-200">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={project.coverImage}
                       alt={project.name}
@@ -106,6 +107,7 @@ export default async function ProjectsPage() {
                 <div className="absolute inset-0 flex items-center justify-center">
                   {project.logo ? (
                     <div className="w-14 h-14 bg-white rounded-xl shadow-lg overflow-hidden p-1">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={project.logo}
                         alt={project.name}

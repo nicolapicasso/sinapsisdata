@@ -116,7 +116,6 @@ export function ProjectTabs({
 
   // Estado para Overview
   const [overview, setOverview] = useState<Overview | null>(null)
-  const [loadingOverview, setLoadingOverview] = useState(false)
   const [generatingOverview, setGeneratingOverview] = useState(false)
 
   // Cargar overview al montar
@@ -294,7 +293,7 @@ export function ProjectTabs({
       setAnsweringQuestion(null)
       setAnswerText('')
       router.refresh()
-    } catch (error) {
+    } catch {
       alert('Error al enviar la respuesta')
     } finally {
       setSubmitting(false)
@@ -313,7 +312,7 @@ export function ProjectTabs({
       if (!res.ok) throw new Error('Error al descartar')
 
       router.refresh()
-    } catch (error) {
+    } catch {
       alert('Error al descartar la pregunta')
     } finally {
       setSubmitting(false)
@@ -332,7 +331,7 @@ export function ProjectTabs({
       if (!res.ok) throw new Error('Error al votar')
 
       router.refresh()
-    } catch (error) {
+    } catch {
       alert('Error al procesar el voto')
     } finally {
       setVotingProposal(null)
