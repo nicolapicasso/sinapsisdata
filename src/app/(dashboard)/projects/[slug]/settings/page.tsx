@@ -20,7 +20,7 @@ import {
   Youtube,
   Linkedin,
   Facebook,
-  Image,
+  Image as ImageIcon,
   Link2,
 } from 'lucide-react'
 
@@ -342,7 +342,7 @@ export default function ProjectSettingsPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    <Image className="w-4 h-4 inline mr-1" />
+                    <ImageIcon className="w-4 h-4 inline mr-1" />
                     URL del logotipo
                   </label>
                   <input
@@ -361,7 +361,7 @@ export default function ProjectSettingsPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    <Image className="w-4 h-4 inline mr-1" />
+                    <ImageIcon className="w-4 h-4 inline mr-1" />
                     URL de imagen de portada
                   </label>
                   <input
