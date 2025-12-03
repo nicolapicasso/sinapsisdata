@@ -373,7 +373,7 @@ export function ReportViewer({
         ref={iframeRefCallback}
         className="flex-1 w-full border-0 bg-white"
         title={title}
-        sandbox="allow-scripts allow-same-origin"
+        sandbox="allow-scripts allow-same-origin allow-modals"
       />
 
       {/* Modal de refinamiento */}

@@ -21,6 +21,11 @@ import {
   RefreshCw,
   Eye,
   EyeOff,
+  Share2,
+  Copy,
+  Check,
+  Globe,
+  Lock,
 } from 'lucide-react'
 import { cn, formatDate } from '@/lib/utils'
 
@@ -29,6 +34,8 @@ interface Report {
   title: string
   status: string
   isPublished: boolean
+  isPublic?: boolean
+  slug?: string | null
   createdAt: Date
   createdBy: { name: string }
 }
@@ -123,6 +130,12 @@ export function ProjectTabs({
 
   // Estado para publicar/despublicar informes
   const [togglingPublish, setTogglingPublish] = useState<string | null>(null)
+
+  // Estado para modal de compartir
+  const [shareModalReport, setShareModalReport] = useState<Report | null>(null)
+  const [shareIsPublic, setShareIsPublic] = useState(false)
+  const [savingShare, setSavingShare] = useState(false)
+  const [copiedUrl, setCopiedUrl] = useState(false)
 
   // Cargar overview al montar
   useEffect(() => {
@@ -366,6 +379,56 @@ export function ProjectTabs({
     }
   }
 
+  const handleOpenShareModal = (e: React.MouseEvent, report: Report) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setShareModalReport(report)
+    setShareIsPublic(report.isPublic ?? false)
+    setCopiedUrl(false)
+  }
+
+  const handleSaveShareSettings = async () => {
+    if (!shareModalReport) return
+
+    setSavingShare(true)
+    try {
+      const res = await fetch(`/api/reports/${shareModalReport.id}/publish`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          isPublished: true,
+          isPublic: shareIsPublic,
+        }),
+      })
+
+      if (!res.ok) throw new Error('Error al guardar')
+
+      const data = await res.json()
+      // Actualizar el reporte con el nuevo slug
+      setShareModalReport({ ...shareModalReport, slug: data.slug, isPublic: shareIsPublic })
+      router.refresh()
+    } catch {
+      alert('Error al guardar configuración')
+    } finally {
+      setSavingShare(false)
+    }
+  }
+
+  const getShareUrl = (report: Report) => {
+    if (!report.slug) return null
+    const baseUrl = typeof window !== 'undefined' ? window.location.origin : ''
+    return `${baseUrl}/r/${project.slug}/${report.slug}`
+  }
+
+  const handleCopyUrl = async () => {
+    const url = shareModalReport ? getShareUrl(shareModalReport) : null
+    if (url) {
+      await navigator.clipboard.writeText(url)
+      setCopiedUrl(true)
+      setTimeout(() => setCopiedUrl(false), 2000)
+    }
+  }
+
   return (
     <div className="bg-white rounded-lg border border-gray-200">
       <div className="border-b border-gray-200">
@@ -603,25 +666,36 @@ export function ProjectTabs({
                       <div className="flex items-center gap-3">
                         {!isClient && getStatusBadge(report.status)}
                         {!isClient && report.status === 'READY' && (
-                          <button
-                            onClick={(e) => handleTogglePublish(e, report.id, report.isPublished)}
-                            disabled={togglingPublish === report.id}
-                            className={cn(
-                              'flex items-center gap-1 px-2 py-1 text-xs rounded transition',
-                              report.isPublished
-                                ? 'text-amber-600 hover:bg-amber-50'
-                                : 'text-green-600 hover:bg-green-50'
+                          <>
+                            <button
+                              onClick={(e) => handleTogglePublish(e, report.id, report.isPublished)}
+                              disabled={togglingPublish === report.id}
+                              className={cn(
+                                'flex items-center gap-1 px-2 py-1 text-xs rounded transition',
+                                report.isPublished
+                                  ? 'text-amber-600 hover:bg-amber-50'
+                                  : 'text-green-600 hover:bg-green-50'
+                              )}
+                              title={report.isPublished ? 'Despublicar' : 'Publicar'}
+                            >
+                              {togglingPublish === report.id ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : report.isPublished ? (
+                                <EyeOff className="w-4 h-4" />
+                              ) : (
+                                <Eye className="w-4 h-4" />
+                              )}
+                            </button>
+                            {report.isPublished && (
+                              <button
+                                onClick={(e) => handleOpenShareModal(e, report)}
+                                className="flex items-center gap-1 px-2 py-1 text-xs rounded transition text-primary hover:bg-primary/10"
+                                title="Compartir"
+                              >
+                                <Share2 className="w-4 h-4" />
+                              </button>
                             )}
-                            title={report.isPublished ? 'Despublicar' : 'Publicar'}
-                          >
-                            {togglingPublish === report.id ? (
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : report.isPublished ? (
-                              <EyeOff className="w-4 h-4" />
-                            ) : (
-                              <Eye className="w-4 h-4" />
-                            )}
-                          </button>
+                          </>
                         )}
                       </div>
                     </div>
@@ -830,6 +904,140 @@ export function ProjectTabs({
           </div>
         )}
       </div>
+
+      {/* Modal de compartir */}
+      {shareModalReport && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-dark">Compartir informe</h2>
+              <button
+                onClick={() => setShareModalReport(null)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-sm text-gray-600 mb-4">
+              Configura la visibilidad del informe &quot;{shareModalReport.title}&quot;
+            </p>
+
+            {/* Opciones de visibilidad */}
+            <div className="space-y-3 mb-6">
+              <label
+                className={cn(
+                  'flex items-start gap-3 p-3 border rounded-lg cursor-pointer transition',
+                  !shareIsPublic ? 'border-primary bg-primary/5' : 'border-gray-200 hover:border-gray-300'
+                )}
+              >
+                <input
+                  type="radio"
+                  name="visibility"
+                  checked={!shareIsPublic}
+                  onChange={() => setShareIsPublic(false)}
+                  className="mt-1"
+                />
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <Lock className="w-4 h-4 text-gray-600" />
+                    <span className="font-medium text-dark">Privado</span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Solo usuarios autenticados con acceso al proyecto pueden ver el informe
+                  </p>
+                </div>
+              </label>
+
+              <label
+                className={cn(
+                  'flex items-start gap-3 p-3 border rounded-lg cursor-pointer transition',
+                  shareIsPublic ? 'border-primary bg-primary/5' : 'border-gray-200 hover:border-gray-300'
+                )}
+              >
+                <input
+                  type="radio"
+                  name="visibility"
+                  checked={shareIsPublic}
+                  onChange={() => setShareIsPublic(true)}
+                  className="mt-1"
+                />
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <Globe className="w-4 h-4 text-green-600" />
+                    <span className="font-medium text-dark">Publico</span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Cualquier persona con el enlace puede ver el informe (sin necesidad de login)
+                  </p>
+                </div>
+              </label>
+            </div>
+
+            {/* URL de compartir */}
+            {shareModalReport.slug ? (
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Enlace del informe
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    readOnly
+                    value={getShareUrl(shareModalReport) || ''}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm bg-gray-50 text-gray-600"
+                  />
+                  <button
+                    onClick={handleCopyUrl}
+                    className={cn(
+                      'flex items-center gap-2 px-4 py-2 rounded-lg transition text-sm',
+                      copiedUrl
+                        ? 'bg-green-100 text-green-700'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    )}
+                  >
+                    {copiedUrl ? (
+                      <>
+                        <Check className="w-4 h-4" />
+                        Copiado
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-4 h-4" />
+                        Copiar
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="mb-6 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <p className="text-sm text-amber-700">
+                  Guarda los cambios para generar el enlace de compartir
+                </p>
+              </div>
+            )}
+
+            {/* Botones */}
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setShareModalReport(null)}
+                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition"
+              >
+                Cerrar
+              </button>
+              <button
+                onClick={handleSaveShareSettings}
+                disabled={savingShare}
+                className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-600 transition disabled:opacity-50"
+              >
+                {savingShare && <Loader2 className="w-4 h-4 animate-spin" />}
+                Guardar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
