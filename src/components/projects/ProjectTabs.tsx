@@ -19,6 +19,8 @@ import {
   Loader2,
   LayoutDashboard,
   RefreshCw,
+  Eye,
+  EyeOff,
 } from 'lucide-react'
 import { cn, formatDate } from '@/lib/utils'
 
@@ -26,6 +28,7 @@ interface Report {
   id: string
   title: string
   status: string
+  isPublished: boolean
   createdAt: Date
   createdBy: { name: string }
 }
@@ -117,6 +120,9 @@ export function ProjectTabs({
   // Estado para Overview
   const [overview, setOverview] = useState<Overview | null>(null)
   const [generatingOverview, setGeneratingOverview] = useState(false)
+
+  // Estado para publicar/despublicar informes
+  const [togglingPublish, setTogglingPublish] = useState<string | null>(null)
 
   // Cargar overview al montar
   useEffect(() => {
@@ -338,6 +344,28 @@ export function ProjectTabs({
     }
   }
 
+  const handleTogglePublish = async (e: React.MouseEvent, reportId: string, currentStatus: boolean) => {
+    e.preventDefault()
+    e.stopPropagation()
+
+    setTogglingPublish(reportId)
+    try {
+      const res = await fetch(`/api/reports/${reportId}/publish`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isPublished: !currentStatus }),
+      })
+
+      if (!res.ok) throw new Error('Error al cambiar estado')
+
+      router.refresh()
+    } catch {
+      alert('Error al cambiar estado de publicación')
+    } finally {
+      setTogglingPublish(null)
+    }
+  }
+
   return (
     <div className="bg-white rounded-lg border border-gray-200">
       <div className="border-b border-gray-200">
@@ -550,15 +578,52 @@ export function ProjectTabs({
                     className="block p-4 border border-gray-200 rounded-lg hover:border-primary hover:shadow-sm transition"
                   >
                     <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="font-medium text-dark">{report.title}</h3>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-medium text-dark">{report.title}</h3>
+                          {!isClient && (
+                            <span
+                              className={cn(
+                                'text-xs px-2 py-0.5 rounded-full',
+                                report.isPublished
+                                  ? 'bg-green-100 text-green-700'
+                                  : 'bg-gray-100 text-gray-600'
+                              )}
+                            >
+                              {report.isPublished ? 'Publicado' : 'Borrador'}
+                            </span>
+                          )}
+                        </div>
                         <p className="text-sm text-gray-500 mt-1">
                           {isClient
                             ? formatDate(report.createdAt)
                             : `Por ${report.createdBy.name} · ${formatDate(report.createdAt)}`}
                         </p>
                       </div>
-                      {!isClient && getStatusBadge(report.status)}
+                      <div className="flex items-center gap-3">
+                        {!isClient && getStatusBadge(report.status)}
+                        {!isClient && report.status === 'READY' && (
+                          <button
+                            onClick={(e) => handleTogglePublish(e, report.id, report.isPublished)}
+                            disabled={togglingPublish === report.id}
+                            className={cn(
+                              'flex items-center gap-1 px-2 py-1 text-xs rounded transition',
+                              report.isPublished
+                                ? 'text-amber-600 hover:bg-amber-50'
+                                : 'text-green-600 hover:bg-green-50'
+                            )}
+                            title={report.isPublished ? 'Despublicar' : 'Publicar'}
+                          >
+                            {togglingPublish === report.id ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : report.isPublished ? (
+                              <EyeOff className="w-4 h-4" />
+                            ) : (
+                              <Eye className="w-4 h-4" />
+                            )}
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </Link>
                 ))}

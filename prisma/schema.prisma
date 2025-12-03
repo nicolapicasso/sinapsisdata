@@ -122,6 +122,9 @@ model Report {
   type        ReportType   @default(CUSTOM)
   status      ReportStatus @default(DRAFT)
 
+  // Visibilidad para clientes
+  isPublished Boolean      @default(false)
+
   // Prompt e instrucciones para IA
   prompt      String
 
