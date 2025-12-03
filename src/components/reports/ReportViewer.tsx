@@ -1,7 +1,25 @@
 'use client'
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
-import { Download, Printer, Wand2, Save, X, Edit2, Loader2, ChevronUp, ChevronDown } from 'lucide-react'
+import { Download, Printer, Wand2, Save, X, Edit2, Loader2, ChevronUp, ChevronDown, Coins, AlertCircle } from 'lucide-react'
+import { FileUploader } from './FileUploader'
+
+// Constantes para estimación de tokens
+const PRICE_INPUT_PER_MILLION = 3
+const PRICE_OUTPUT_PER_MILLION = 15
+const CHARS_PER_TOKEN_TEXT = 3.5
+const CHARS_PER_TOKEN_CSV = 4
+const OUTPUT_TO_INPUT_RATIO = 0.5
+
+function formatNumber(num: number): string {
+  if (num >= 1_000_000) {
+    return (num / 1_000_000).toFixed(2) + 'M'
+  }
+  if (num >= 1_000) {
+    return (num / 1_000).toFixed(1) + 'K'
+  }
+  return num.toString()
+}
 
 interface ReportViewerProps {
   htmlContent: string
@@ -35,7 +53,30 @@ export function ReportViewer({
   // Estados para pedir cambios
   const [showRefineModal, setShowRefineModal] = useState(false)
   const [refinePrompt, setRefinePrompt] = useState('')
+  const [refineFiles, setRefineFiles] = useState<File[]>([])
   const [refining, setRefining] = useState(false)
+
+  // Estimación de tokens para refinamiento
+  const refineTokenEstimate = useMemo(() => {
+    const promptTokens = Math.ceil(refinePrompt.length / CHARS_PER_TOKEN_TEXT)
+    const totalFileSize = refineFiles.reduce((acc, f) => acc + f.size, 0)
+    const fileTokens = Math.ceil(totalFileSize / CHARS_PER_TOKEN_CSV)
+    // Incluir HTML actual (~estimamos su tamaño)
+    const htmlTokens = Math.ceil(htmlContent.length / CHARS_PER_TOKEN_TEXT)
+    const systemTokens = 500
+
+    const inputTokens = promptTokens + fileTokens + htmlTokens + systemTokens
+    const outputTokens = Math.ceil(inputTokens * OUTPUT_TO_INPUT_RATIO)
+    const inputCost = (inputTokens / 1_000_000) * PRICE_INPUT_PER_MILLION
+    const outputCost = (outputTokens / 1_000_000) * PRICE_OUTPUT_PER_MILLION
+
+    return {
+      inputTokens,
+      outputTokens,
+      totalTokens: inputTokens + outputTokens,
+      cost: inputCost + outputCost,
+    }
+  }, [refinePrompt, refineFiles, htmlContent])
 
   // Estados para notas del equipo
   const [editingNotes, setEditingNotes] = useState(false)
@@ -116,10 +157,20 @@ export function ReportViewer({
 
     setRefining(true)
     try {
+      // Leer contenido de los archivos adicionales
+      const filesContent: { name: string; content: string }[] = []
+      for (const file of refineFiles) {
+        const content = await file.text()
+        filesContent.push({ name: file.name, content })
+      }
+
       const res = await fetch(`/api/reports/${reportId}/refine`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: refinePrompt }),
+        body: JSON.stringify({
+          prompt: refinePrompt,
+          additionalFiles: filesContent,
+        }),
       })
 
       if (!res.ok) {
@@ -129,6 +180,7 @@ export function ReportViewer({
 
       setShowRefineModal(false)
       setRefinePrompt('')
+      setRefineFiles([])
       onRefresh?.()
     } catch (error) {
       alert(error instanceof Error ? error.message : 'Error al refinar el informe')
@@ -327,11 +379,14 @@ export function ReportViewer({
       {/* Modal de refinamiento */}
       {showRefineModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-2xl w-full p-6">
+          <div className="bg-white rounded-xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold text-dark">Pedir cambios a la IA</h2>
               <button
-                onClick={() => setShowRefineModal(false)}
+                onClick={() => {
+                  setShowRefineModal(false)
+                  setRefineFiles([])
+                }}
                 className="text-gray-400 hover:text-gray-600"
               >
                 <X className="w-6 h-6" />
@@ -346,12 +401,65 @@ export function ReportViewer({
               value={refinePrompt}
               onChange={(e) => setRefinePrompt(e.target.value)}
               placeholder="Ej: Cambia el titulo a 'Informe Q4 2024', anade una seccion de recomendaciones al final, cambia el grafico de barras por uno de lineas..."
-              className="w-full h-40 p-4 border border-gray-300 rounded-lg resize-none focus:ring-2 focus:ring-primary focus:border-transparent"
+              className="w-full h-32 p-4 border border-gray-300 rounded-lg resize-none focus:ring-2 focus:ring-primary focus:border-transparent"
             />
+
+            {/* Subir archivos adicionales */}
+            <div className="mt-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Archivos adicionales (opcional)
+              </label>
+              <p className="text-xs text-gray-500 mb-2">
+                Sube archivos CSV o HTML con información adicional que la IA usará para modificar el informe.
+              </p>
+              <FileUploader
+                files={refineFiles}
+                onFilesChange={setRefineFiles}
+                maxFiles={5}
+                acceptedTypes="both"
+              />
+            </div>
+
+            {/* Estimación de tokens */}
+            {(refinePrompt.length > 0 || refineFiles.length > 0) && (
+              <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <Coins className="w-4 h-4 text-blue-600" />
+                  <span className="text-sm font-medium text-blue-900">Estimación de consumo</span>
+                </div>
+                <div className="grid grid-cols-4 gap-2 text-sm">
+                  <div>
+                    <p className="text-blue-600 text-xs">Entrada</p>
+                    <p className="font-semibold text-blue-900">~{formatNumber(refineTokenEstimate.inputTokens)}</p>
+                  </div>
+                  <div>
+                    <p className="text-blue-600 text-xs">Salida</p>
+                    <p className="font-semibold text-blue-900">~{formatNumber(refineTokenEstimate.outputTokens)}</p>
+                  </div>
+                  <div>
+                    <p className="text-blue-600 text-xs">Total</p>
+                    <p className="font-semibold text-blue-900">~{formatNumber(refineTokenEstimate.totalTokens)}</p>
+                  </div>
+                  <div>
+                    <p className="text-blue-600 text-xs">Coste</p>
+                    <p className="font-semibold text-green-600">~${refineTokenEstimate.cost.toFixed(4)}</p>
+                  </div>
+                </div>
+                {refineTokenEstimate.cost > 0.1 && (
+                  <div className="mt-2 flex items-center gap-2 text-amber-700 text-xs">
+                    <AlertCircle className="w-3 h-3" />
+                    <span>Esta modificación puede tener un coste elevado</span>
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="flex justify-end gap-3 mt-4">
               <button
-                onClick={() => setShowRefineModal(false)}
+                onClick={() => {
+                  setShowRefineModal(false)
+                  setRefineFiles([])
+                }}
                 className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition"
               >
                 Cancelar

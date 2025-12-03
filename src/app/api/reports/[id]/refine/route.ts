@@ -4,6 +4,11 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { refineReport } from '@/lib/claude'
 
+interface AdditionalFile {
+  name: string
+  content: string
+}
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -20,7 +25,10 @@ export async function POST(
     }
 
     const { id } = await params
-    const { prompt } = await req.json()
+    const { prompt, additionalFiles } = await req.json() as {
+      prompt: string
+      additionalFiles?: AdditionalFile[]
+    }
 
     if (!prompt?.trim()) {
       return NextResponse.json({ error: 'El prompt es requerido' }, { status: 400 })
@@ -60,10 +68,19 @@ export async function POST(
       data: { status: 'PROCESSING' },
     })
 
+    // Construir el prompt con archivos adicionales si los hay
+    let fullPrompt = prompt
+    if (additionalFiles && additionalFiles.length > 0) {
+      fullPrompt += '\n\nARCHIVOS ADICIONALES PROPORCIONADOS:\n'
+      for (const file of additionalFiles) {
+        fullPrompt += `\n--- ${file.name} ---\n${file.content}\n`
+      }
+    }
+
     // Refinar el informe
     const result = await refineReport({
       currentHtml: report.htmlContent,
-      refinementPrompt: prompt,
+      refinementPrompt: fullPrompt,
       projectContext: report.project.aiContext || report.project.description || undefined,
     })
 

@@ -2,9 +2,10 @@
 
 import { useState, useMemo } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { ArrowLeft, Loader2, Coins, AlertCircle } from 'lucide-react'
+import { ArrowLeft, Loader2, Coins, AlertCircle, FileCode, Upload } from 'lucide-react'
 import Link from 'next/link'
 import { FileUploader } from '@/components/reports/FileUploader'
+import { cn } from '@/lib/utils'
 
 // Precios de Claude Sonnet 3.5 (por millón de tokens)
 const PRICE_INPUT_PER_MILLION = 3 // $3 por millón de tokens de entrada
@@ -38,6 +39,11 @@ function formatNumber(num: number): string {
   return num.toString()
 }
 
+// Detectar si hay archivos HTML en la lista
+function hasHtmlFile(files: File[]): boolean {
+  return files.some(f => f.name.endsWith('.html') || f.name.endsWith('.htm'))
+}
+
 export default function NewReportPage() {
   const router = useRouter()
   const params = useParams()
@@ -48,6 +54,9 @@ export default function NewReportPage() {
   const [files, setFiles] = useState<File[]>([])
   const [fileSizes, setFileSizes] = useState<number[]>([])
 
+  // Modo de HTML: true = usar sin modificaciones, false = usar como fuente de datos (por defecto)
+  const [useHtmlDirectly, setUseHtmlDirectly] = useState(false)
+
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -56,8 +65,23 @@ export default function NewReportPage() {
     periodTo: '',
   })
 
+  // Detectar si hay un HTML subido
+  const htmlUploaded = useMemo(() => hasHtmlFile(files), [files])
+
   // Calcular estimación de tokens en tiempo real
   const tokenEstimate = useMemo(() => {
+    // Si usamos HTML directamente, no hay consumo de tokens
+    if (htmlUploaded && useHtmlDirectly) {
+      return {
+        inputTokens: 0,
+        outputTokens: 0,
+        totalTokens: 0,
+        cost: 0,
+        fileTokens: 0,
+        promptTokens: 0,
+      }
+    }
+
     // Tokens del prompt del usuario
     const promptTokens = estimateTokens(formData.prompt, CHARS_PER_TOKEN_TEXT)
 
@@ -92,26 +116,47 @@ export default function NewReportPage() {
       fileTokens,
       promptTokens,
     }
-  }, [formData.prompt, formData.title, formData.description, fileSizes])
+  }, [formData.prompt, formData.title, formData.description, fileSizes, htmlUploaded, useHtmlDirectly])
 
   // Actualizar tamaños de archivos cuando cambien
   const handleFilesChange = (newFiles: File[]) => {
     setFiles(newFiles)
     setFileSizes(newFiles.map(f => f.size))
+    // Si no hay HTML, resetear el modo
+    if (!hasHtmlFile(newFiles)) {
+      setUseHtmlDirectly(false)
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
     if (files.length === 0) {
-      setError('Debes subir al menos un archivo CSV')
+      setError('Debes subir al menos un archivo')
       return
+    }
+
+    // Si NO usamos HTML directamente, el prompt es requerido
+    if (!htmlUploaded || !useHtmlDirectly) {
+      if (!formData.prompt.trim()) {
+        setError('Las instrucciones para la IA son requeridas')
+        return
+      }
     }
 
     setLoading(true)
     setError('')
 
     try {
+      // Buscar el archivo HTML si existe
+      const htmlFile = files.find(f => f.name.endsWith('.html') || f.name.endsWith('.htm'))
+
+      // Si usamos HTML directamente, leer el contenido
+      let htmlContent: string | undefined
+      if (htmlUploaded && useHtmlDirectly && htmlFile) {
+        htmlContent = await htmlFile.text()
+      }
+
       // 1. Crear el informe
       const reportRes = await fetch('/api/reports', {
         method: 'POST',
@@ -119,6 +164,9 @@ export default function NewReportPage() {
         body: JSON.stringify({
           projectSlug: slug,
           ...formData,
+          // Si usamos HTML directamente, enviamos el contenido y marcamos como listo
+          useHtmlDirectly: htmlUploaded && useHtmlDirectly,
+          htmlContent,
         }),
       })
 
@@ -129,7 +177,7 @@ export default function NewReportPage() {
 
       const report = await reportRes.json()
 
-      // 2. Subir los archivos
+      // 2. Subir los archivos (siempre, para tener registro)
       for (const file of files) {
         const formDataUpload = new FormData()
         formDataUpload.append('file', file)
@@ -145,14 +193,16 @@ export default function NewReportPage() {
         }
       }
 
-      // 3. Iniciar generacion en background (NO esperamos)
-      fetch('/api/reports/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reportId: report.id }),
-      }).catch(err => {
-        console.error('Error iniciando generacion:', err)
-      })
+      // 3. Si NO usamos HTML directamente, iniciar generacion en background
+      if (!htmlUploaded || !useHtmlDirectly) {
+        fetch('/api/reports/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ reportId: report.id }),
+        }).catch(err => {
+          console.error('Error iniciando generacion:', err)
+        })
+      }
 
       // 4. Redirigir inmediatamente al informe
       router.push(`/projects/${slug}/reports/${report.id}`)
@@ -239,32 +289,108 @@ export default function NewReportPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Instrucciones para la IA *
-            </label>
-            <textarea
-              value={formData.prompt}
-              onChange={(e) => setFormData({ ...formData, prompt: e.target.value })}
-              rows={4}
-              required
-              disabled={loading}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none resize-none disabled:bg-gray-100"
-              placeholder="Describe que tipo de analisis quieres que la IA realice. Por ejemplo: 'Analiza los datos de ventas del mes, identifica tendencias y compara con el mes anterior. Destaca los productos mas vendidos y las areas de mejora.'"
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              Se mas especifico para obtener mejores resultados
-            </p>
-          </div>
-
-          <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Archivos de datos (CSV) *
+              Archivos de datos *
             </label>
             <FileUploader
               files={files}
               onFilesChange={handleFilesChange}
               disabled={loading}
+              acceptedTypes="both"
             />
+          </div>
+
+          {/* Toggle para modo HTML */}
+          {htmlUploaded && (
+            <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center shrink-0">
+                  <FileCode className="w-4 h-4 text-orange-600" />
+                </div>
+                <div className="flex-1">
+                  <h4 className="text-sm font-medium text-orange-900 mb-3">
+                    Has subido un archivo HTML
+                  </h4>
+                  <div className="flex flex-col gap-2">
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <div
+                        className={cn(
+                          'w-5 h-5 rounded-full border-2 flex items-center justify-center transition',
+                          !useHtmlDirectly
+                            ? 'border-primary bg-primary'
+                            : 'border-gray-300'
+                        )}
+                      >
+                        {!useHtmlDirectly && (
+                          <div className="w-2 h-2 rounded-full bg-white" />
+                        )}
+                      </div>
+                      <input
+                        type="radio"
+                        name="htmlMode"
+                        checked={!useHtmlDirectly}
+                        onChange={() => setUseHtmlDirectly(false)}
+                        className="sr-only"
+                      />
+                      <span className="text-sm text-gray-700">
+                        <strong>Usar HTML como fuente de datos</strong> — La IA analizará el contenido y generará un nuevo informe
+                      </span>
+                    </label>
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <div
+                        className={cn(
+                          'w-5 h-5 rounded-full border-2 flex items-center justify-center transition',
+                          useHtmlDirectly
+                            ? 'border-primary bg-primary'
+                            : 'border-gray-300'
+                        )}
+                      >
+                        {useHtmlDirectly && (
+                          <div className="w-2 h-2 rounded-full bg-white" />
+                        )}
+                      </div>
+                      <input
+                        type="radio"
+                        name="htmlMode"
+                        checked={useHtmlDirectly}
+                        onChange={() => setUseHtmlDirectly(true)}
+                        className="sr-only"
+                      />
+                      <span className="text-sm text-gray-700">
+                        <strong>Usar HTML sin modificaciones</strong> — Se subirá tal cual, sin procesar por la IA
+                      </span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Instrucciones para la IA {!(htmlUploaded && useHtmlDirectly) && '*'}
+            </label>
+            <textarea
+              value={formData.prompt}
+              onChange={(e) => setFormData({ ...formData, prompt: e.target.value })}
+              rows={4}
+              required={!(htmlUploaded && useHtmlDirectly)}
+              disabled={loading || (htmlUploaded && useHtmlDirectly)}
+              className={cn(
+                'w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none resize-none disabled:bg-gray-100',
+                htmlUploaded && useHtmlDirectly && 'opacity-50'
+              )}
+              placeholder={
+                htmlUploaded && useHtmlDirectly
+                  ? 'No se requieren instrucciones cuando se sube el HTML sin modificaciones'
+                  : "Describe que tipo de analisis quieres que la IA realice. Por ejemplo: 'Analiza los datos de ventas del mes, identifica tendencias y compara con el mes anterior. Destaca los productos mas vendidos y las areas de mejora.'"
+              }
+            />
+            {!(htmlUploaded && useHtmlDirectly) && (
+              <p className="text-xs text-gray-500 mt-1">
+                Se mas especifico para obtener mejores resultados
+              </p>
+            )}
           </div>
 
           {/* Estimación de consumo */}
@@ -278,41 +404,52 @@ export default function NewReportPage() {
                   <h4 className="text-sm font-medium text-blue-900 mb-2">
                     Estimación de consumo
                   </h4>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
-                    <div>
-                      <p className="text-blue-600 text-xs">Tokens entrada</p>
-                      <p className="font-semibold text-blue-900">
-                        ~{formatNumber(tokenEstimate.inputTokens)}
+                  {htmlUploaded && useHtmlDirectly ? (
+                    <div className="flex items-center gap-2 text-green-700 text-sm">
+                      <Upload className="w-4 h-4" />
+                      <span>
+                        <strong>Sin consumo de IA</strong> — El HTML se subirá directamente sin procesamiento
+                      </span>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                        <div>
+                          <p className="text-blue-600 text-xs">Tokens entrada</p>
+                          <p className="font-semibold text-blue-900">
+                            ~{formatNumber(tokenEstimate.inputTokens)}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-blue-600 text-xs">Tokens salida</p>
+                          <p className="font-semibold text-blue-900">
+                            ~{formatNumber(tokenEstimate.outputTokens)}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-blue-600 text-xs">Total tokens</p>
+                          <p className="font-semibold text-blue-900">
+                            ~{formatNumber(tokenEstimate.totalTokens)}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-blue-600 text-xs">Coste estimado</p>
+                          <p className="font-semibold text-green-600">
+                            ~${tokenEstimate.cost.toFixed(4)}
+                          </p>
+                        </div>
+                      </div>
+                      {tokenEstimate.cost > 0.1 && (
+                        <div className="mt-3 flex items-center gap-2 text-amber-700 text-xs">
+                          <AlertCircle className="w-3 h-3" />
+                          <span>Este informe puede tener un coste elevado debido al tamaño de los datos</span>
+                        </div>
+                      )}
+                      <p className="text-blue-500 text-xs mt-2">
+                        * Estimación aproximada basada en Claude Sonnet 3.5. El coste real puede variar.
                       </p>
-                    </div>
-                    <div>
-                      <p className="text-blue-600 text-xs">Tokens salida</p>
-                      <p className="font-semibold text-blue-900">
-                        ~{formatNumber(tokenEstimate.outputTokens)}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-blue-600 text-xs">Total tokens</p>
-                      <p className="font-semibold text-blue-900">
-                        ~{formatNumber(tokenEstimate.totalTokens)}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-blue-600 text-xs">Coste estimado</p>
-                      <p className="font-semibold text-green-600">
-                        ~${tokenEstimate.cost.toFixed(4)}
-                      </p>
-                    </div>
-                  </div>
-                  {tokenEstimate.cost > 0.1 && (
-                    <div className="mt-3 flex items-center gap-2 text-amber-700 text-xs">
-                      <AlertCircle className="w-3 h-3" />
-                      <span>Este informe puede tener un coste elevado debido al tamaño de los datos</span>
-                    </div>
+                    </>
                   )}
-                  <p className="text-blue-500 text-xs mt-2">
-                    * Estimación aproximada basada en Claude Sonnet 3.5. El coste real puede variar.
-                  </p>
                 </div>
               </div>
             </div>
@@ -333,8 +470,10 @@ export default function NewReportPage() {
               {loading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Creando...
+                  {htmlUploaded && useHtmlDirectly ? 'Subiendo...' : 'Creando...'}
                 </>
+              ) : htmlUploaded && useHtmlDirectly ? (
+                'Subir Informe HTML'
               ) : (
                 'Crear y Generar Informe'
               )}

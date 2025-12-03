@@ -1,15 +1,18 @@
 'use client'
 
-import { useCallback } from 'react'
+import { useCallback, useMemo } from 'react'
 import { useDropzone } from 'react-dropzone'
-import { Upload, X, FileSpreadsheet } from 'lucide-react'
+import { Upload, X, FileSpreadsheet, FileCode } from 'lucide-react'
 import { cn, formatFileSize } from '@/lib/utils'
+
+type AcceptedFileType = 'csv' | 'html' | 'both'
 
 interface FileUploaderProps {
   files: File[]
   onFilesChange: (files: File[]) => void
   maxFiles?: number
   disabled?: boolean
+  acceptedTypes?: AcceptedFileType
 }
 
 export function FileUploader({
@@ -17,6 +20,7 @@ export function FileUploader({
   onFilesChange,
   maxFiles = 10,
   disabled = false,
+  acceptedTypes = 'csv',
 }: FileUploaderProps) {
   const onDrop = useCallback(
     (acceptedFiles: File[]) => {
@@ -33,15 +37,54 @@ export function FileUploader({
     onFilesChange(newFiles)
   }
 
+  // Configurar tipos aceptados según la prop
+  const acceptConfig = useMemo((): Record<string, string[]> => {
+    switch (acceptedTypes) {
+      case 'html':
+        return {
+          'text/html': ['.html', '.htm'],
+        }
+      case 'both':
+        return {
+          'text/csv': ['.csv'],
+          'application/vnd.ms-excel': ['.csv'],
+          'text/html': ['.html', '.htm'],
+        }
+      case 'csv':
+      default:
+        return {
+          'text/csv': ['.csv'],
+          'application/vnd.ms-excel': ['.csv'],
+        }
+    }
+  }, [acceptedTypes])
+
+  const acceptedTypesLabel = useMemo(() => {
+    switch (acceptedTypes) {
+      case 'html':
+        return 'HTML'
+      case 'both':
+        return 'CSV o HTML'
+      case 'csv':
+      default:
+        return 'CSV'
+    }
+  }, [acceptedTypes])
+
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    accept: {
-      'text/csv': ['.csv'],
-      'application/vnd.ms-excel': ['.csv'],
-    },
+    accept: acceptConfig,
     maxFiles: maxFiles - files.length,
     disabled,
   })
+
+  // Determinar el icono según el tipo de archivo
+  const getFileIcon = (file: File) => {
+    if (file.name.endsWith('.html') || file.name.endsWith('.htm')) {
+      return <FileCode className="w-5 h-5 text-orange-500" />
+    }
+    return <FileSpreadsheet className="w-5 h-5 text-primary" />
+  }
 
   return (
     <div className="space-y-4">
@@ -63,7 +106,7 @@ export function FileUploader({
         ) : (
           <div>
             <p className={cn('font-medium', disabled ? 'text-gray-400' : 'text-gray-600')}>
-              Arrastra archivos CSV aqui o haz clic para seleccionar
+              Arrastra archivos {acceptedTypesLabel} aqui o haz clic para seleccionar
             </p>
             <p className="text-sm text-gray-400 mt-1">Maximo {maxFiles} archivos</p>
           </div>
@@ -78,7 +121,7 @@ export function FileUploader({
               className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
             >
               <div className="flex items-center gap-3">
-                <FileSpreadsheet className="w-5 h-5 text-primary" />
+                {getFileIcon(file)}
                 <div>
                   <p className="text-sm font-medium text-dark">{file.name}</p>
                   <p className="text-xs text-gray-400">{formatFileSize(file.size)}</p>
