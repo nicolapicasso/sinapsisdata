@@ -118,9 +118,14 @@ model Report {
   id          String       @id @default(cuid())
   projectId   String
   title       String
+  slug        String?      // Slug para URL pública (generado del título)
   description String?
   type        ReportType   @default(CUSTOM)
   status      ReportStatus @default(DRAFT)
+
+  // Visibilidad para clientes
+  isPublished Boolean      @default(false)
+  isPublic    Boolean      @default(false)  // Si true, accesible sin login
 
   // Prompt e instrucciones para IA
   prompt      String
@@ -154,6 +159,7 @@ model Report {
   questions   AIQuestion[]
   proposals   AIProposal[]
 
+  @@unique([projectId, slug])
   @@map("reports")
 }
 

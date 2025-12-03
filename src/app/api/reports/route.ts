@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@prisma/client'
 
 // POST - Crear informe
 export async function POST(req: NextRequest) {
@@ -12,10 +13,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
     }
 
-    const { projectSlug, title, description, prompt, periodFrom, periodTo } = await req.json()
+    const {
+      projectSlug,
+      title,
+      description,
+      prompt,
+      periodFrom,
+      periodTo,
+      useHtmlDirectly,
+      htmlContent,
+    } = await req.json()
 
-    if (!projectSlug || !title || !prompt) {
+    // Si NO usamos HTML directamente, el prompt es requerido
+    if (!projectSlug || !title) {
       return NextResponse.json({ error: 'Faltan campos requeridos' }, { status: 400 })
+    }
+
+    if (!useHtmlDirectly && !prompt) {
+      return NextResponse.json({ error: 'El prompt es requerido' }, { status: 400 })
     }
 
     // Verificar que el proyecto existe y el usuario tiene acceso
@@ -41,16 +56,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No tienes permisos para crear informes' }, { status: 403 })
     }
 
+    // Si usamos HTML directamente, el informe ya está listo
     const report = await prisma.report.create({
       data: {
         projectId: project.id,
         title,
         description,
-        prompt,
+        prompt: prompt || '',
         periodFrom: periodFrom ? new Date(periodFrom) : null,
         periodTo: periodTo ? new Date(periodTo) : null,
         createdById: session.user.id,
-        status: 'DRAFT',
+        // Si usamos HTML directamente, guardamos el contenido y marcamos como READY
+        status: useHtmlDirectly ? 'READY' : 'DRAFT',
+        htmlContent: useHtmlDirectly ? htmlContent : null,
+        // Marcar que fue subido directamente (sin consumo de IA)
+        aiMetadata: useHtmlDirectly
+          ? ({ source: 'UPLOADED', inputTokens: 0, outputTokens: 0 } as Prisma.InputJsonValue)
+          : Prisma.JsonNull,
       },
     })
 

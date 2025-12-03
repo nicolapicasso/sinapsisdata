@@ -10,6 +10,7 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
+  Coins,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -61,6 +62,15 @@ export function Sidebar({ userRole }: SidebarProps) {
     },
   ]
 
+  // Links disponibles para admin y consultores
+  const consultantLinks = [
+    {
+      href: '/admin/usage',
+      label: 'Consumo IA',
+      icon: Coins,
+    },
+  ]
+
   return (
     <aside
       className={cn(
@@ -105,16 +115,53 @@ export function Sidebar({ userRole }: SidebarProps) {
           })}
         </div>
 
-        {userRole === 'ADMIN' && (
+        {/* Sección para Admin y Consultores */}
+        {(userRole === 'ADMIN' || userRole === 'CONSULTANT') && (
           <>
             {!isCollapsed && (
               <div className="mt-8 mb-2 px-3">
+                <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                  Análisis
+                </span>
+              </div>
+            )}
+            {isCollapsed && <div className="mt-6 border-t border-gray-200 pt-4" />}
+            <div className="space-y-1">
+              {consultantLinks.map((link) => {
+                const isActive = pathname === link.href
+                return (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    title={isCollapsed ? link.label : undefined}
+                    className={cn(
+                      'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                      isCollapsed && 'justify-center px-2',
+                      isActive
+                        ? 'bg-primary text-white'
+                        : 'text-gray-600 hover:bg-gray-100'
+                    )}
+                  >
+                    <link.icon className="w-5 h-5 shrink-0" />
+                    {!isCollapsed && <span>{link.label}</span>}
+                  </Link>
+                )
+              })}
+            </div>
+          </>
+        )}
+
+        {/* Sección solo para Admin */}
+        {userRole === 'ADMIN' && (
+          <>
+            {!isCollapsed && (
+              <div className="mt-6 mb-2 px-3">
                 <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
                   Administracion
                 </span>
               </div>
             )}
-            {isCollapsed && <div className="mt-6 border-t border-gray-200 pt-4" />}
+            {isCollapsed && <div className="mt-4 border-t border-gray-200 pt-4" />}
             <div className="space-y-1">
               {adminLinks.map((link) => {
                 const isActive = pathname === link.href

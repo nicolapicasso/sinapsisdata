@@ -28,7 +28,14 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
       },
       reports: {
         orderBy: { createdAt: 'desc' },
-        include: {
+        select: {
+          id: true,
+          title: true,
+          status: true,
+          isPublished: true,
+          isPublic: true,
+          slug: true,
+          createdAt: true,
           createdBy: {
             select: { id: true, name: true },
           },
@@ -86,6 +93,12 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
         : 'CLIENT'
 
   const canEdit = effectiveRole !== 'CLIENT'
+  const isClient = effectiveRole === 'CLIENT'
+
+  // Filtrar informes para clientes: solo publicados y listos
+  const visibleReports = isClient
+    ? project.reports.filter((r) => r.isPublished && r.status === 'READY')
+    : project.reports
 
   // Cast socialLinks to proper type for ProjectHeader
   const projectForHeader = {
@@ -104,7 +117,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
       <ProjectHeader project={projectForHeader} canEdit={canEdit} />
       <ProjectTabs
         project={project}
-        reports={project.reports}
+        reports={visibleReports}
         questions={project.questions}
         proposals={project.proposals}
         approvedProposals={approvedProposals}
