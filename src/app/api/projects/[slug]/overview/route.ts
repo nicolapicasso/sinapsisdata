@@ -197,8 +197,19 @@ export async function POST(
 
     // Generar overview con IA (async)
     const overviewId = overview.id
+    const existingMetadata = overview.aiMetadata as { inputTokens?: number; outputTokens?: number; duration?: number } | null
+
     generateOverview(overviewParams)
       .then(async (result) => {
+        // ACUMULAR tokens en lugar de sobrescribir
+        const accumulatedMetadata = {
+          model: result.metadata.model,
+          inputTokens: (existingMetadata?.inputTokens || 0) + result.metadata.inputTokens,
+          outputTokens: (existingMetadata?.outputTokens || 0) + result.metadata.outputTokens,
+          duration: (existingMetadata?.duration || 0) + result.metadata.duration,
+          projectStatus: result.projectStatus,
+        }
+
         // Actualizar overview con el resultado
         await prisma.report.update({
           where: { id: overviewId },
@@ -206,10 +217,7 @@ export async function POST(
             status: 'READY',
             htmlContent: result.html,
             executiveSummary: result.summary,
-            aiMetadata: {
-              ...result.metadata,
-              projectStatus: result.projectStatus,
-            },
+            aiMetadata: accumulatedMetadata,
           },
         })
 
