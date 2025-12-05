@@ -9,6 +9,13 @@ interface AdditionalFile {
   content: string
 }
 
+interface AIMetadata {
+  model?: string
+  inputTokens?: number
+  outputTokens?: number
+  duration?: number
+}
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -84,13 +91,22 @@ export async function POST(
       projectContext: report.project.aiContext || report.project.description || undefined,
     })
 
-    // Guardar el nuevo HTML
+    // ACUMULAR tokens en lugar de sobrescribir
+    const existingMetadata = report.aiMetadata as AIMetadata | null
+    const accumulatedMetadata = {
+      model: result.metadata.model,
+      inputTokens: (existingMetadata?.inputTokens || 0) + result.metadata.inputTokens,
+      outputTokens: (existingMetadata?.outputTokens || 0) + result.metadata.outputTokens,
+      duration: (existingMetadata?.duration || 0) + result.metadata.duration,
+    }
+
+    // Guardar el nuevo HTML con tokens acumulados
     await prisma.report.update({
       where: { id },
       data: {
         status: 'READY',
         htmlContent: result.html,
-        aiMetadata: result.metadata,
+        aiMetadata: accumulatedMetadata,
       },
     })
 
