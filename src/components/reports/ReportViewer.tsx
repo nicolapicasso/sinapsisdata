@@ -369,7 +369,7 @@ export function ReportViewer({
 
       {/* Iframe del informe */}
       <iframe
-        key="normal-iframe"
+        key={`report-iframe-${reportId}`}
         ref={iframeRefCallback}
         className="flex-1 w-full border-0 bg-white"
         title={title}
