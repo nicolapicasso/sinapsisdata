@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { Download, Printer, Wand2, Save, X, Edit2, Loader2, ChevronUp, ChevronDown, Coins, AlertCircle } from 'lucide-react'
 import { FileUploader } from './FileUploader'
 
@@ -47,9 +47,6 @@ export function ReportViewer({
   isCollapsed: externalIsCollapsed,
   onToggleCollapse,
 }: ReportViewerProps) {
-  // Ref para el iframe actual (para imprimir)
-  const currentIframeRef = useRef<HTMLIFrameElement | null>(null)
-
   // Estados para pedir cambios
   const [showRefineModal, setShowRefineModal] = useState(false)
   const [refinePrompt, setRefinePrompt] = useState('')
@@ -121,22 +118,31 @@ export function ReportViewer({
     return htmlContent + customNotesHtml
   }, [htmlContent, executiveSummary, strengths])
 
-  // Callback ref que escribe el contenido cuando el iframe se monta
-  const iframeRefCallback = useCallback((iframe: HTMLIFrameElement | null) => {
-    if (iframe) {
-      currentIframeRef.current = iframe
-      const doc = iframe.contentDocument
-      if (doc) {
-        doc.open()
-        doc.write(finalHtml)
-        doc.close()
-      }
+  // Envolver el HTML en un contenedor con reset de estilos para evitar contaminación
+  const isolatedHtml = useMemo(() => {
+    // Añadir un reset CSS al inicio del HTML para aislar estilos
+    const styleReset = `
+      <style>
+        /* Reset para evitar contaminación de estilos externos */
+        :host, :root { all: initial; }
+      </style>
+    `
+
+    // Si el HTML tiene <head>, insertar el reset ahí
+    if (finalHtml.includes('<head>')) {
+      return finalHtml.replace('<head>', `<head>${styleReset}`)
     }
+
+    // Si no tiene <head>, añadir al principio
+    return styleReset + finalHtml
   }, [finalHtml])
 
+  // Ref para el iframe (para imprimir)
+  const iframeRef = useRef<HTMLIFrameElement>(null)
+
   const handlePrint = () => {
-    if (currentIframeRef.current?.contentWindow) {
-      currentIframeRef.current.contentWindow.print()
+    if (iframeRef.current?.contentWindow) {
+      iframeRef.current.contentWindow.print()
     }
   }
 
@@ -367,10 +373,11 @@ export function ReportViewer({
         </>
       )}
 
-      {/* Iframe del informe */}
+      {/* Iframe del informe - usando srcDoc para mejor aislamiento de estilos */}
       <iframe
         key={`report-iframe-${reportId}`}
-        ref={iframeRefCallback}
+        ref={iframeRef}
+        srcDoc={isolatedHtml}
         className="flex-1 w-full border-0 bg-white"
         title={title}
         sandbox="allow-scripts allow-same-origin allow-modals"
