@@ -76,6 +76,7 @@ export const authOptions: NextAuthOptions = {
         sameSite: 'lax',
         path: '/',
         secure: isProduction,
+        maxAge: 30 * 24 * 60 * 60, // 30 días - persistir cookie entre sesiones del navegador
       },
     },
   },

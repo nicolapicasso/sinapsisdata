@@ -581,6 +581,7 @@ export function ProjectTabs({
                   </div>
                   <div className="h-96 overflow-hidden">
                     <iframe
+                      key={`overview-preview-${overview.id}-${overview.updatedAt}`}
                       srcDoc={overview.htmlContent || ''}
                       className="w-full h-full border-0 transform scale-75 origin-top-left"
                       style={{ width: '133%', height: '133%' }}
