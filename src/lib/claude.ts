@@ -48,18 +48,21 @@ REGLAS PARA EL HTML:
 1. El HTML debe ser completo y autocontenido
 2. Usa Apache ECharts para gráficos (incluye CDN: https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js)
 3. Usa Tailwind CSS via CDN para estilos
-4. Paleta de colores:
+4. TIPOGRAFÍA: Usa siempre Montserrat como fuente principal
+   - Incluye Google Fonts: <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+   - Aplica a todo el documento: font-family: 'Montserrat', sans-serif;
+5. Paleta de colores:
    - Primario: #215A6B
    - Acento: #F8AE00
    - Fondo: #F5F5F5
    - Texto: #1A1A1A
-5. El informe debe incluir:
+6. El informe debe incluir:
    - Resumen ejecutivo
    - Métricas principales con variaciones
    - Gráficos interactivos relevantes
    - Conclusiones y recomendaciones
-6. Diseño responsive y profesional
-7. Los gráficos deben usar los colores de marca
+7. Diseño responsive y profesional
+8. Los gráficos deben usar los colores de marca
 
 IMPORTANTE: Responde SOLO con un JSON válido (sin bloques de codigo markdown) con esta estructura exacta:
 {
@@ -174,6 +177,7 @@ REGLAS:
 3. No elimines secciones a menos que se pida explícitamente
 4. Mantén los gráficos ECharts funcionando
 5. Respeta la paleta de colores: Primario #215A6B, Acento #F8AE00
+6. Mantén siempre la tipografía Montserrat (font-family: 'Montserrat', sans-serif)
 
 IMPORTANTE: Responde SOLO con el HTML modificado completo (sin bloques de código markdown, sin explicaciones).`
 
@@ -380,6 +384,9 @@ Crear un dashboard que responda en 10 segundos a: "¿Cómo va el proyecto?"
 - HTML5 completo y autocontenido
 - CDN Tailwind CSS: https://cdn.tailwindcss.com
 - CDN ECharts (solo si hay tartas): https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js
+- TIPOGRAFÍA: Usar siempre Montserrat como fuente principal
+  - Incluir: <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  - Aplicar: font-family: 'Montserrat', sans-serif;
 - Responsive design
 - Paleta:
   - Primario: #215A6B
