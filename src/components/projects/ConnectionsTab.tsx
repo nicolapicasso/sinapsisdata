@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import {
   Link2,
   Plus,
@@ -14,6 +15,7 @@ import {
   ExternalLink,
   ToggleLeft,
   ToggleRight,
+  Zap,
 } from 'lucide-react'
 import { cn, formatDate } from '@/lib/utils'
 
@@ -300,6 +302,30 @@ export function ConnectionsTab({ projectId, projectSlug, dataSources: initialDat
                 </div>
               </div>
             ))}
+
+            {/* Optimization Tool Link */}
+            <div className="mt-4 p-4 bg-gradient-to-r from-primary/5 to-accent/5 border border-primary/20 rounded-lg">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-primary/10 rounded-lg">
+                    <Zap className="w-5 h-5 text-primary" />
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-dark">Herramienta de Optimización</h4>
+                    <p className="text-sm text-gray-500">
+                      Analiza tus campañas con IA y obtén sugerencias de optimización
+                    </p>
+                  </div>
+                </div>
+                <Link
+                  href={`/projects/${projectSlug}/optimize`}
+                  className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-600 transition text-sm"
+                >
+                  <Zap className="w-4 h-4" />
+                  Abrir herramienta
+                </Link>
+              </div>
+            </div>
           </div>
         )}
       </div>
