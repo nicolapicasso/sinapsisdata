@@ -166,6 +166,7 @@ export function ProjectTabs({
     if (!isClient) {
       fetchOverview()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project.slug, isClient])
 
   // Polling cuando el overview esta procesando
@@ -174,6 +175,7 @@ export function ProjectTabs({
       const interval = setInterval(fetchOverview, 3000)
       return () => clearInterval(interval)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [overview?.status])
 
   const fetchOverview = async () => {
