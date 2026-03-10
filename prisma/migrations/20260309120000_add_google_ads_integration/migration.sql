@@ -1,48 +1,37 @@
--- CreateEnum
-CREATE TYPE "OptimizationActionType" AS ENUM ('NEGATIVE_KEYWORD', 'EXCLUDE_PLACEMENT', 'PAUSE_KEYWORD', 'ENABLE_KEYWORD', 'UPDATE_KEYWORD_BID', 'UPDATE_CAMPAIGN_BUDGET', 'PAUSE_CAMPAIGN', 'ENABLE_CAMPAIGN');
+-- CreateEnum (only if not exists)
+DO $$ BEGIN
+    CREATE TYPE "OptimizationActionType" AS ENUM ('NEGATIVE_KEYWORD', 'EXCLUDE_PLACEMENT', 'PAUSE_KEYWORD', 'ENABLE_KEYWORD', 'UPDATE_KEYWORD_BID', 'UPDATE_CAMPAIGN_BUDGET', 'PAUSE_CAMPAIGN', 'ENABLE_CAMPAIGN');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
--- CreateEnum
-CREATE TYPE "OptimizationActionStatus" AS ENUM ('PENDING', 'APPROVED', 'REJECTED', 'EXECUTED', 'FAILED');
+DO $$ BEGIN
+    CREATE TYPE "OptimizationActionStatus" AS ENUM ('PENDING', 'APPROVED', 'REJECTED', 'EXECUTED', 'FAILED');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
--- DropEnum (unused types from previous schema)
-DROP TYPE IF EXISTS "DataSourceType";
-DROP TYPE IF EXISTS "DataSourceStatus";
+-- Add new values to DataSourceType enum if they don't exist
+DO $$ BEGIN
+    ALTER TYPE "DataSourceType" ADD VALUE IF NOT EXISTS 'GOOGLE_ADS';
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
--- CreateEnum (recreate with correct values)
-CREATE TYPE "DataSourceType" AS ENUM ('GOOGLE_ADS', 'GOOGLE_ANALYTICS');
-CREATE TYPE "DataSourceStatus" AS ENUM ('CONNECTED', 'ERROR', 'EXPIRED', 'PENDING');
+DO $$ BEGIN
+    ALTER TYPE "DataSourceType" ADD VALUE IF NOT EXISTS 'GOOGLE_ANALYTICS';
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
--- AlterTable: Update data_sources structure
--- First, drop the old table if it exists and has no data
--- If data exists, you'll need a more careful migration
+-- Add new columns to data_sources if they don't exist
+ALTER TABLE "data_sources" ADD COLUMN IF NOT EXISTS "mccId" TEXT;
+ALTER TABLE "data_sources" ADD COLUMN IF NOT EXISTS "metadata" JSONB;
+ALTER TABLE "data_sources" ADD COLUMN IF NOT EXISTS "lastSyncAt" TIMESTAMP(3);
+ALTER TABLE "data_sources" ADD COLUMN IF NOT EXISTS "lastError" TEXT;
 
--- Drop existing data_sources table (safe for new deployments)
-DROP TABLE IF EXISTS "data_sources";
-
--- CreateTable
-CREATE TABLE "data_sources" (
-    "id" TEXT NOT NULL,
-    "projectId" TEXT NOT NULL,
-    "type" "DataSourceType" NOT NULL,
-    "accessToken" TEXT NOT NULL,
-    "refreshToken" TEXT NOT NULL,
-    "tokenExpiry" TIMESTAMP(3),
-    "accountId" TEXT NOT NULL,
-    "accountName" TEXT NOT NULL,
-    "mccId" TEXT,
-    "metadata" JSONB,
-    "status" "DataSourceStatus" NOT NULL DEFAULT 'PENDING',
-    "isActive" BOOLEAN NOT NULL DEFAULT true,
-    "lastSyncAt" TIMESTAMP(3),
-    "lastError" TEXT,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
-
-    CONSTRAINT "data_sources_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "optimization_actions" (
+-- CreateTable optimization_actions (only if not exists)
+CREATE TABLE IF NOT EXISTS "optimization_actions" (
     "id" TEXT NOT NULL,
     "projectId" TEXT NOT NULL,
     "dataSourceId" TEXT NOT NULL,
@@ -64,14 +53,21 @@ CREATE TABLE "optimization_actions" (
     CONSTRAINT "optimization_actions_pkey" PRIMARY KEY ("id")
 );
 
--- AddForeignKey
-ALTER TABLE "data_sources" ADD CONSTRAINT "data_sources_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "projects"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+-- AddForeignKey (only if not exists)
+DO $$ BEGIN
+    ALTER TABLE "optimization_actions" ADD CONSTRAINT "optimization_actions_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "projects"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
--- AddForeignKey
-ALTER TABLE "optimization_actions" ADD CONSTRAINT "optimization_actions_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "projects"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "optimization_actions" ADD CONSTRAINT "optimization_actions_dataSourceId_fkey" FOREIGN KEY ("dataSourceId") REFERENCES "data_sources"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
--- AddForeignKey
-ALTER TABLE "optimization_actions" ADD CONSTRAINT "optimization_actions_dataSourceId_fkey" FOREIGN KEY ("dataSourceId") REFERENCES "data_sources"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "optimization_actions" ADD CONSTRAINT "optimization_actions_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "optimization_actions" ADD CONSTRAINT "optimization_actions_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
