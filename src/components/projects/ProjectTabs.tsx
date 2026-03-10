@@ -82,7 +82,7 @@ interface Overview {
 
 interface DataSource {
   id: string
-  type: 'GOOGLE_ADS' | 'GOOGLE_ANALYTICS'
+  type: 'GOOGLE_ADS' | 'GOOGLE_ANALYTICS' | 'GOOGLE_SEARCH_CONSOLE'
   accountId: string
   accountName: string
   mccId?: string | null
@@ -90,6 +90,7 @@ interface DataSource {
     currency?: string
     timezone?: string
     isManager?: boolean
+    permissionLevel?: string
   } | null
   status: 'CONNECTED' | 'ERROR' | 'EXPIRED' | 'PENDING'
   isActive: boolean
