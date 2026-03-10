@@ -85,6 +85,7 @@ export default function SelectAccountPage() {
         body: JSON.stringify({
           mccCustomerId: mcc.customerId,
           encryptedAccessToken: data?.accessToken,
+          encryptedRefreshToken: data?.refreshToken,
         }),
       })
 
