@@ -187,6 +187,13 @@ REGLAS IMPORTANTES:
 6. No sugieras más de 15 acciones para no abrumar
 7. Incluye siempre el campaignId y adGroupId en targetEntity cuando estén disponibles
 8. Para NEGATIVE_KEYWORD, especifica matchType (preferir EXACT para términos específicos)
+9. CRÍTICO - Respeta el estado actual de las entidades:
+   - NO sugieras PAUSE_CAMPAIGN para campañas con status "PAUSED" (ya están pausadas)
+   - NO sugieras ENABLE_CAMPAIGN para campañas con status "ENABLED" (ya están activas)
+   - NO sugieras PAUSE_KEYWORD para keywords con status "PAUSED"
+   - NO sugieras ENABLE_KEYWORD para keywords con status "ENABLED"
+   - Solo sugiere cambios de estado para entidades que realmente necesitan el cambio
+10. Solo analiza y sugiere acciones para campañas con status "ENABLED" (activas), ignora las pausadas para sugerencias de optimización de rendimiento
 
 Responde SOLO con el JSON, sin explicación adicional.`
 }
