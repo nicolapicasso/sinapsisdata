@@ -88,8 +88,14 @@ export async function POST(req: NextRequest) {
       if (!report.periodFrom || !report.periodTo) {
         console.log(`[Report Generate] WARNING: Period not set, skipping data source extraction`)
       } else {
+        // Ensure dates don't go into the future (GA4 can't handle future dates)
+        const today = new Date()
+        const effectiveEndDate = report.periodTo > today ? today : report.periodTo
+
         const startDate = report.periodFrom.toISOString().split('T')[0]
-        const endDate = report.periodTo.toISOString().split('T')[0]
+        const endDate = effectiveEndDate.toISOString().split('T')[0]
+
+        console.log(`[Report Generate] Using date range: ${startDate} to ${endDate}`)
 
         // Obtener los data sources seleccionados
         const dataSources = await prisma.dataSource.findMany({
