@@ -47,7 +47,10 @@ export default function SelectAccountPage() {
   useEffect(() => {
     if (dataParam) {
       try {
-        const decoded = JSON.parse(Buffer.from(dataParam, 'base64url').toString())
+        // Convert base64url to standard base64
+        const base64 = dataParam.replace(/-/g, '+').replace(/_/g, '/')
+        // Decode base64 and parse JSON
+        const decoded = JSON.parse(atob(base64))
         setData(decoded)
       } catch {
         setError('Datos de cuenta inválidos')
