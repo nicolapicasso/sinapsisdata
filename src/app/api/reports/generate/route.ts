@@ -6,6 +6,49 @@ import { generateReport } from '@/lib/claude'
 import { parseCSV } from '@/lib/csv-parser'
 import { readFile } from 'fs/promises'
 import { Prisma } from '@prisma/client'
+import { extractGoogleAdsData, GoogleAdsAnalysisData } from '@/lib/google/data-extraction'
+import { extractGoogleAnalyticsData, analyticsDataToRows, GoogleAnalyticsData } from '@/lib/google/analytics-extraction'
+
+// Convert Google Ads data to rows for AI analysis
+function adsDataToRows(data: GoogleAdsAnalysisData): Record<string, unknown>[] {
+  const rows: Record<string, unknown>[] = []
+
+  // Add summary
+  rows.push({
+    _type: 'summary',
+    source: 'Google Ads',
+    account: data.accountName,
+    dateRange: `${data.dateRange.startDate} to ${data.dateRange.endDate}`,
+    ...data.summary,
+  })
+
+  // Add campaigns
+  data.campaigns.forEach((c) => {
+    rows.push({ _type: 'campaign', ...c })
+  })
+
+  // Add ad groups (top 50)
+  data.adGroups.slice(0, 50).forEach((ag) => {
+    rows.push({ _type: 'ad_group', ...ag })
+  })
+
+  // Add keywords (top 100)
+  data.keywords.slice(0, 100).forEach((k) => {
+    rows.push({ _type: 'keyword', ...k })
+  })
+
+  // Add search terms (top 100)
+  data.searchTerms.slice(0, 100).forEach((st) => {
+    rows.push({ _type: 'search_term', ...st })
+  })
+
+  // Add placements if any
+  data.placements.slice(0, 50).forEach((p) => {
+    rows.push({ _type: 'placement', ...p })
+  })
+
+  return rows
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -14,7 +57,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
     }
 
-    const { reportId } = await req.json()
+    const { reportId, dataSourceIds = [] } = await req.json()
 
     // Obtener informe con archivos y proyecto
     const report = await prisma.report.findUnique({
@@ -35,8 +78,48 @@ export async function POST(req: NextRequest) {
       data: { status: 'PROCESSING' },
     })
 
-    // Parsear todos los CSVs
     const allData: Record<string, unknown>[] = []
+
+    // 1. Obtener datos de data sources conectados (Analytics/Ads)
+    if (dataSourceIds.length > 0 && report.periodFrom && report.periodTo) {
+      const startDate = report.periodFrom.toISOString().split('T')[0]
+      const endDate = report.periodTo.toISOString().split('T')[0]
+
+      // Obtener los data sources seleccionados
+      const dataSources = await prisma.dataSource.findMany({
+        where: {
+          id: { in: dataSourceIds },
+          projectId: report.projectId,
+          status: 'CONNECTED',
+          isActive: true,
+        },
+      })
+
+      console.log(`[Report Generate] Fetching data from ${dataSources.length} data sources`)
+
+      for (const ds of dataSources) {
+        try {
+          if (ds.type === 'GOOGLE_ANALYTICS') {
+            console.log(`[Report Generate] Extracting Google Analytics data for ${ds.accountName}`)
+            const gaData: GoogleAnalyticsData = await extractGoogleAnalyticsData(ds.id, startDate, endDate)
+            const gaRows = analyticsDataToRows(gaData)
+            allData.push(...gaRows)
+            console.log(`[Report Generate] Got ${gaRows.length} rows from Google Analytics`)
+          } else if (ds.type === 'GOOGLE_ADS') {
+            console.log(`[Report Generate] Extracting Google Ads data for ${ds.accountName}`)
+            const adsData: GoogleAdsAnalysisData = await extractGoogleAdsData(ds.id, startDate, endDate)
+            const adsRows = adsDataToRows(adsData)
+            allData.push(...adsRows)
+            console.log(`[Report Generate] Got ${adsRows.length} rows from Google Ads`)
+          }
+        } catch (err) {
+          console.error(`[Report Generate] Error extracting data from ${ds.type} ${ds.accountName}:`, err)
+          // Continue with other data sources
+        }
+      }
+    }
+
+    // 2. Parsear archivos CSV
     for (const file of report.files) {
       if (file.mimeType === 'text/csv' || file.originalName.endsWith('.csv')) {
         try {
@@ -53,23 +136,33 @@ export async function POST(req: NextRequest) {
             },
           })
 
-          allData.push(...parsed.data)
+          // Marcar los datos de CSV con su origen
+          const csvRows = parsed.data.map((row) => ({
+            _type: 'csv_data',
+            _source: file.originalName,
+            ...row,
+          }))
+          allData.push(...csvRows)
+          console.log(`[Report Generate] Got ${csvRows.length} rows from CSV ${file.originalName}`)
         } catch (err) {
           console.error(`Error parsing file ${file.originalName}:`, err)
         }
       }
     }
 
+    // Verificar que hay datos
     if (allData.length === 0) {
       await prisma.report.update({
         where: { id: reportId },
         data: {
           status: 'ERROR',
-          errorMessage: 'No se encontraron datos en los archivos CSV',
+          errorMessage: 'No se encontraron datos para analizar. Verifica que las conexiones esten activas o sube archivos CSV.',
         },
       })
       return NextResponse.json({ error: 'No hay datos para analizar' }, { status: 400 })
     }
+
+    console.log(`[Report Generate] Total data rows for analysis: ${allData.length}`)
 
     // Obtener feedback previo del proyecto
     const [approvedProposals, rejectedProposals, answeredQuestions] = await Promise.all([
