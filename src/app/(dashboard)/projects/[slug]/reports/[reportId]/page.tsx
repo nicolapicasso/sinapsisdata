@@ -94,6 +94,7 @@ export default function ReportPage() {
 
   useEffect(() => {
     fetchReport()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reportId])
 
   // Polling cuando esta procesando
@@ -102,6 +103,7 @@ export default function ReportPage() {
       const interval = setInterval(fetchReport, 3000) // Cada 3 segundos
       return () => clearInterval(interval)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [report?.status])
 
   if (loading && !report) {
