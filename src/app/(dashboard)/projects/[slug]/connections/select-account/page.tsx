@@ -22,6 +22,12 @@ interface GA4Property {
   timezone: string
 }
 
+interface SearchConsoleSite {
+  siteUrl: string
+  name: string
+  permissionLevel: string
+}
+
 interface AccountData {
   projectId: string
   projectSlug: string
@@ -30,13 +36,14 @@ interface AccountData {
   tokenExpiry: number
   accounts?: GoogleAdsAccount[]
   properties?: GA4Property[]
+  sites?: SearchConsoleSite[]
 }
 
 export default function SelectAccountPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
 
-  const type = searchParams.get('type') as 'google_ads' | 'google_analytics' | null
+  const type = searchParams.get('type') as 'google_ads' | 'google_analytics' | 'google_search_console' | null
   const dataParam = searchParams.get('data')
 
   const [data, setData] = useState<AccountData | null>(null)
@@ -65,46 +72,68 @@ export default function SelectAccountPage() {
     setError(null)
 
     try {
-      const selectedAccount = type === 'google_ads'
-        ? data.accounts?.find(a => a.customerId === selectedId)
-        : data.properties?.find(p => p.propertyId === selectedId)
+      let selectedAccount
+      if (type === 'google_ads') {
+        selectedAccount = data.accounts?.find(a => a.customerId === selectedId)
+      } else if (type === 'google_analytics') {
+        selectedAccount = data.properties?.find(p => p.propertyId === selectedId)
+      } else {
+        selectedAccount = data.sites?.find(s => s.siteUrl === selectedId)
+      }
 
       if (!selectedAccount) {
         throw new Error('Cuenta seleccionada no encontrada')
       }
 
-      const payload = type === 'google_ads'
-        ? {
-            projectId: data.projectId,
-            type: 'GOOGLE_ADS',
-            accessToken: data.accessToken,
-            refreshToken: data.refreshToken,
-            tokenExpiry: data.tokenExpiry,
-            accountId: (selectedAccount as GoogleAdsAccount).customerId,
-            accountName: (selectedAccount as GoogleAdsAccount).name,
-            mccId: (selectedAccount as GoogleAdsAccount).isManager
-              ? (selectedAccount as GoogleAdsAccount).customerId
-              : null,
-            metadata: {
-              currency: (selectedAccount as GoogleAdsAccount).currency,
-              timezone: (selectedAccount as GoogleAdsAccount).timezone,
-              isManager: (selectedAccount as GoogleAdsAccount).isManager,
-            },
-          }
-        : {
-            projectId: data.projectId,
-            type: 'GOOGLE_ANALYTICS',
-            accessToken: data.accessToken,
-            refreshToken: data.refreshToken,
-            tokenExpiry: data.tokenExpiry,
-            accountId: (selectedAccount as GA4Property).propertyId,
-            accountName: (selectedAccount as GA4Property).name,
-            metadata: {
-              propertyName: (selectedAccount as GA4Property).propertyName,
-              currency: (selectedAccount as GA4Property).currency,
-              timezone: (selectedAccount as GA4Property).timezone,
-            },
-          }
+      let payload
+      if (type === 'google_ads') {
+        const acc = selectedAccount as GoogleAdsAccount
+        payload = {
+          projectId: data.projectId,
+          type: 'GOOGLE_ADS',
+          accessToken: data.accessToken,
+          refreshToken: data.refreshToken,
+          tokenExpiry: data.tokenExpiry,
+          accountId: acc.customerId,
+          accountName: acc.name,
+          mccId: acc.isManager ? acc.customerId : null,
+          metadata: {
+            currency: acc.currency,
+            timezone: acc.timezone,
+            isManager: acc.isManager,
+          },
+        }
+      } else if (type === 'google_analytics') {
+        const prop = selectedAccount as GA4Property
+        payload = {
+          projectId: data.projectId,
+          type: 'GOOGLE_ANALYTICS',
+          accessToken: data.accessToken,
+          refreshToken: data.refreshToken,
+          tokenExpiry: data.tokenExpiry,
+          accountId: prop.propertyId,
+          accountName: prop.name,
+          metadata: {
+            propertyName: prop.propertyName,
+            currency: prop.currency,
+            timezone: prop.timezone,
+          },
+        }
+      } else {
+        const site = selectedAccount as SearchConsoleSite
+        payload = {
+          projectId: data.projectId,
+          type: 'GOOGLE_SEARCH_CONSOLE',
+          accessToken: data.accessToken,
+          refreshToken: data.refreshToken,
+          tokenExpiry: data.tokenExpiry,
+          accountId: site.siteUrl,
+          accountName: site.name,
+          metadata: {
+            permissionLevel: site.permissionLevel,
+          },
+        }
+      }
 
       const res = await fetch('/api/datasources', {
         method: 'POST',
@@ -154,8 +183,13 @@ export default function SelectAccountPage() {
     )
   }
 
-  const items = type === 'google_ads' ? data.accounts : data.properties
+  const items = type === 'google_ads'
+    ? data.accounts
+    : type === 'google_analytics'
+      ? data.properties
+      : data.sites
   const isGoogleAds = type === 'google_ads'
+  const isSearchConsole = type === 'google_search_console'
 
   return (
     <div className="max-w-2xl mx-auto py-8">
@@ -169,10 +203,10 @@ export default function SelectAccountPage() {
 
       <div className="bg-white rounded-xl border border-gray-200 p-6">
         <h1 className="text-xl font-bold text-dark mb-2">
-          Selecciona {isGoogleAds ? 'una cuenta de Google Ads' : 'una propiedad GA4'}
+          Selecciona {isGoogleAds ? 'una cuenta de Google Ads' : isSearchConsole ? 'un sitio de Search Console' : 'una propiedad GA4'}
         </h1>
         <p className="text-gray-600 mb-6">
-          Se encontraron múltiples {isGoogleAds ? 'cuentas' : 'propiedades'}. Selecciona la que deseas conectar.
+          Se encontraron multiples {isGoogleAds ? 'cuentas' : isSearchConsole ? 'sitios' : 'propiedades'}. Selecciona la que deseas conectar.
         </p>
 
         {error && (
@@ -185,7 +219,9 @@ export default function SelectAccountPage() {
           {items?.map((item) => {
             const id = isGoogleAds
               ? (item as GoogleAdsAccount).customerId
-              : (item as GA4Property).propertyId
+              : isSearchConsole
+                ? (item as SearchConsoleSite).siteUrl
+                : (item as GA4Property).propertyId
             const name = item.name
             const isManager = isGoogleAds && (item as GoogleAdsAccount).isManager
 
@@ -211,9 +247,9 @@ export default function SelectAccountPage() {
                       )}
                     </div>
                     <p className="text-sm text-gray-500 mt-1">
-                      {isGoogleAds ? 'ID: ' : 'Property ID: '}
+                      {isGoogleAds ? 'ID: ' : isSearchConsole ? '' : 'Property ID: '}
                       {id}
-                      {item.currency && ` · ${item.currency}`}
+                      {!isSearchConsole && (item as GoogleAdsAccount | GA4Property).currency && ` · ${(item as GoogleAdsAccount | GA4Property).currency}`}
                     </p>
                   </div>
                   {selectedId === id && (

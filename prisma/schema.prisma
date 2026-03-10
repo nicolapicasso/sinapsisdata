@@ -274,6 +274,7 @@ model AIProposal {
 enum DataSourceType {
   GOOGLE_ADS
   GOOGLE_ANALYTICS
+  GOOGLE_SEARCH_CONSOLE
 }
 
 enum DataSourceStatus {

@@ -37,6 +37,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
           isPublic: true,
           slug: true,
           createdAt: true,
+          updatedAt: true,
           createdBy: {
             select: { id: true, name: true },
           },

@@ -39,6 +39,7 @@ interface Report {
   isPublic?: boolean
   slug?: string | null
   createdAt: Date
+  updatedAt: Date
   createdBy: { name: string }
 }
 
@@ -694,6 +695,11 @@ export function ProjectTabs({
                           {isClient
                             ? formatDate(report.createdAt)
                             : `Por ${report.createdBy.name} · ${formatDate(report.createdAt)}`}
+                          {report.updatedAt && new Date(report.updatedAt).getTime() > new Date(report.createdAt).getTime() + 60000 && (
+                            <span className="text-xs text-gray-400 ml-2">
+                              (actualizado {formatDate(report.updatedAt)})
+                            </span>
+                          )}
                         </p>
                       </div>
                       <div className="flex items-center gap-3">

@@ -46,7 +46,7 @@ function hasHtmlFile(files: File[]): boolean {
 
 interface DataSource {
   id: string
-  type: 'GOOGLE_ANALYTICS' | 'GOOGLE_ADS'
+  type: 'GOOGLE_ANALYTICS' | 'GOOGLE_ADS' | 'GOOGLE_SEARCH_CONSOLE'
   accountId: string
   accountName: string
   status: string
@@ -99,6 +99,7 @@ export default function NewReportPage() {
 
   const analyticsConnected = dataSources.filter((ds) => ds.type === 'GOOGLE_ANALYTICS')
   const adsConnected = dataSources.filter((ds) => ds.type === 'GOOGLE_ADS')
+  const searchConsoleConnected = dataSources.filter((ds) => ds.type === 'GOOGLE_SEARCH_CONSOLE')
 
   const hasAnyDataSource = selectedDataSources.length > 0 || files.length > 0
 
@@ -409,6 +410,48 @@ export default function NewReportPage() {
                     ))}
                   </div>
                 )}
+
+                {searchConsoleConnected.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-xs text-gray-500 font-medium">Google Search Console</p>
+                    {searchConsoleConnected.map((ds) => (
+                      <label
+                        key={ds.id}
+                        className={cn(
+                          'flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition',
+                          selectedDataSources.includes(ds.id)
+                            ? 'border-primary bg-primary/5'
+                            : 'border-gray-200 hover:border-gray-300'
+                        )}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedDataSources.includes(ds.id)}
+                          onChange={() => toggleDataSource(ds.id)}
+                          disabled={loading}
+                          className="sr-only"
+                        />
+                        <div
+                          className={cn(
+                            'w-5 h-5 rounded border-2 flex items-center justify-center transition',
+                            selectedDataSources.includes(ds.id)
+                              ? 'border-primary bg-primary'
+                              : 'border-gray-300'
+                          )}
+                        >
+                          {selectedDataSources.includes(ds.id) && (
+                            <CheckCircle2 className="w-3 h-3 text-white" />
+                          )}
+                        </div>
+                        <BarChart3 className="w-5 h-5 text-green-500" />
+                        <div className="flex-1">
+                          <p className="font-medium text-sm text-dark">{ds.accountName}</p>
+                          <p className="text-xs text-gray-500">{ds.accountId}</p>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -426,7 +469,7 @@ export default function NewReportPage() {
               acceptedTypes="both"
             />
             <p className="text-xs text-gray-500 mt-1">
-              Puedes combinar datos de Analytics/Ads con CSVs adicionales (ventas, CRM, etc.)
+              Puedes combinar datos de Analytics/Ads/Search Console con CSVs adicionales
             </p>
           </div>
 

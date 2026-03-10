@@ -17,6 +17,8 @@ interface Report {
   executiveSummary: string | null
   strengths: string | null
   opportunities: string | null
+  createdAt: string
+  updatedAt: string
 }
 
 export default function ReportPage() {
@@ -145,6 +147,11 @@ export default function ReportPage() {
               <h1 className="text-xl font-bold text-dark">{report.title}</h1>
               {report.description && (
                 <p className="text-gray-500 text-sm mt-1">{report.description}</p>
+              )}
+              {report.updatedAt && new Date(report.updatedAt).getTime() > new Date(report.createdAt).getTime() + 60000 && (
+                <p className="text-xs text-gray-400 mt-1">
+                  Ultima actualizacion: {new Date(report.updatedAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                </p>
               )}
             </div>
 
