@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { decryptTokens, encryptTokens } from '@/lib/encryption'
-import { refreshAccessToken, calculateTokenExpiry, isTokenExpired } from '@/lib/google/oauth'
+import { refreshAccessToken, calculateTokenExpiry } from '@/lib/google/oauth'
 
 interface RouteParams {
   params: { id: string }
@@ -51,7 +51,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     }
 
     // Return without sensitive data
-    const { accessToken, refreshToken, project, ...safeData } = dataSource
+    const { accessToken: _accessToken, refreshToken: _refreshToken, project, ...safeData } = dataSource
 
     return NextResponse.json({
       dataSource: {

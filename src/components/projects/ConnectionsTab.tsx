@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   Link2,
@@ -12,7 +11,6 @@ import {
   CheckCircle,
   Clock,
   Loader2,
-  ExternalLink,
   ToggleLeft,
   ToggleRight,
   Zap,
@@ -70,7 +68,6 @@ interface ConnectionsTabProps {
 }
 
 export function ConnectionsTab({ projectId, projectSlug, dataSources: initialDataSources }: ConnectionsTabProps) {
-  const router = useRouter()
   const [dataSources, setDataSources] = useState(initialDataSources)
   const [loading, setLoading] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
@@ -147,7 +144,7 @@ export function ConnectionsTab({ projectId, projectSlug, dataSources: initialDat
         throw new Error(data.error || 'Error al refrescar token')
       }
 
-      const data = await res.json()
+      await res.json()
       setDataSources(prev =>
         prev.map(ds =>
           ds.id === dataSourceId ? { ...ds, status: 'CONNECTED' as const } : ds

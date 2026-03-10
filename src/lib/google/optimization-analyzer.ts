@@ -228,7 +228,7 @@ export async function analyzeGoogleAdsData(
       jsonStr = jsonMatch[1]
     }
     result = JSON.parse(jsonStr.trim())
-  } catch (error) {
+  } catch {
     console.error('[Optimizer] Failed to parse Claude response:', textContent.text)
     throw new Error('Failed to parse optimization analysis')
   }
