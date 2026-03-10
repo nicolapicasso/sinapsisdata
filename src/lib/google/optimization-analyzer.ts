@@ -307,6 +307,24 @@ export async function analyzeGoogleAdsData(
       }
     }
 
+    // For NEGATIVE_KEYWORD without campaignId, find a search term containing the keyword
+    if (
+      suggestion.type === 'NEGATIVE_KEYWORD' &&
+      !suggestion.targetEntity.campaignId &&
+      suggestion.payload?.keyword
+    ) {
+      const keywordToMatch = (suggestion.payload.keyword as string).toLowerCase()
+      const matchingTerm = data.searchTerms.find((st) =>
+        st.searchTerm.toLowerCase().includes(keywordToMatch)
+      )
+      if (matchingTerm) {
+        suggestion.targetEntity.campaignId = matchingTerm.campaignId
+        suggestion.targetEntity.campaignName = matchingTerm.campaignName
+        suggestion.targetEntity.adGroupId = matchingTerm.adGroupId
+        suggestion.targetEntity.adGroupName = matchingTerm.adGroupName
+      }
+    }
+
     return suggestion
   })
 
