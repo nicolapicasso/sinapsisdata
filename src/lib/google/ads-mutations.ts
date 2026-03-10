@@ -3,7 +3,7 @@
  * Execute optimization actions via Google Ads API
  */
 
-const GOOGLE_ADS_API_VERSION = 'v18'
+const GOOGLE_ADS_API_VERSION = 'v23'
 const GOOGLE_ADS_API_URL = `https://googleads.googleapis.com/${GOOGLE_ADS_API_VERSION}`
 
 interface MutateResponse {
