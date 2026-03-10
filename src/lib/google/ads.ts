@@ -3,7 +3,7 @@
  * Using REST API directly instead of the npm package for more control
  */
 
-const GOOGLE_ADS_API_VERSION = 'v18'
+const GOOGLE_ADS_API_VERSION = 'v17'
 const GOOGLE_ADS_API_URL = `https://googleads.googleapis.com/${GOOGLE_ADS_API_VERSION}`
 
 interface GoogleAdsAccount {
