@@ -3,7 +3,7 @@
  * Using Search Console API for search analytics data
  */
 
-const SEARCH_CONSOLE_API_URL = 'https://searchconsole.googleapis.com/v1'
+const SEARCH_CONSOLE_API_URL = 'https://www.googleapis.com/webmasters/v3'
 
 export interface SearchConsoleSite {
   siteUrl: string
