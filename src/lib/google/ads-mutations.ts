@@ -157,12 +157,18 @@ export async function excludePlacement(
 ): Promise<{ resourceName: string }> {
   const { placement, campaignId, loginCustomerId } = options
 
+  // Normalize URL - ensure it's just the domain without protocol
+  const normalizedPlacement = placement
+    .replace(/^https?:\/\//, '')
+    .replace(/\/$/, '')
+    .toLowerCase()
+
   const operations = [
     {
       create: {
         campaign: `customers/${customerId}/campaigns/${campaignId}`,
         placement: {
-          url: placement,
+          url: normalizedPlacement,
         },
         negative: true,
       },
@@ -359,6 +365,7 @@ export async function executeOptimizationAction(
       campaignId?: string
       adGroupId?: string
       keywordId?: string
+      budgetId?: string
     }
   },
   loginCustomerId?: string
@@ -442,6 +449,21 @@ export async function executeOptimizationAction(
         result = await updateCampaignStatus(accessToken, customerId, {
           campaignId: action.targetEntity.campaignId,
           status: 'ENABLED',
+          loginCustomerId,
+        })
+        break
+
+      case 'UPDATE_CAMPAIGN_BUDGET':
+        if (!action.targetEntity.campaignId || !action.targetEntity.budgetId) {
+          throw new Error('Campaign ID and Budget ID required')
+        }
+        if (!action.payload.amountMicros) {
+          throw new Error('Budget amount required')
+        }
+        result = await updateCampaignBudget(accessToken, customerId, {
+          campaignId: action.targetEntity.campaignId,
+          budgetId: action.targetEntity.budgetId,
+          amountMicros: action.payload.amountMicros as number,
           loginCustomerId,
         })
         break
