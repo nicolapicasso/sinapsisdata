@@ -50,8 +50,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       )
     }
 
-    // Return without sensitive data
-    const { accessToken: _accessToken, refreshToken: _refreshToken, project, ...safeData } = dataSource
+    // Return without sensitive data (omit tokens)
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { accessToken, refreshToken, project, ...safeData } = dataSource
 
     return NextResponse.json({
       dataSource: {

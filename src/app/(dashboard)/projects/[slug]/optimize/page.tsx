@@ -7,7 +7,6 @@ import {
   ArrowLeft,
   Play,
   Loader2,
-  CheckCircle,
   XCircle,
   AlertTriangle,
   TrendingUp,
@@ -15,10 +14,8 @@ import {
   MousePointer,
   Target,
   ThumbsUp,
-  ThumbsDown,
   Zap,
   Calendar,
-  RefreshCw,
   ChevronDown,
   ChevronUp,
 } from 'lucide-react'
@@ -106,6 +103,7 @@ export default function OptimizePage() {
 
   useEffect(() => {
     fetchProjectData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug])
 
   function getDefaultStartDate(): string {
@@ -604,10 +602,10 @@ export default function OptimizePage() {
                               <span> / Grupo: {suggestion.targetEntity.adGroupName}</span>
                             )}
                             {suggestion.targetEntity.searchTerm && (
-                              <span> / Término: "{suggestion.targetEntity.searchTerm}"</span>
+                              <span> / Término: &quot;{suggestion.targetEntity.searchTerm}&quot;</span>
                             )}
                             {suggestion.targetEntity.keywordText && (
-                              <span> / Keyword: "{suggestion.targetEntity.keywordText}"</span>
+                              <span> / Keyword: &quot;{suggestion.targetEntity.keywordText}&quot;</span>
                             )}
                             {suggestion.targetEntity.placement && (
                               <span> / Placement: {suggestion.targetEntity.placement}</span>
