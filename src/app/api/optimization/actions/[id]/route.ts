@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
+import { Prisma } from '@prisma/client'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { getValidAccessToken } from '@/lib/google/data-extraction'
@@ -213,7 +214,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       data: {
         status: result.success ? 'EXECUTED' : 'FAILED',
         executedAt: new Date(),
-        result: result.success ? { resourceName: result.resourceName } : null,
+        result: result.success ? { resourceName: result.resourceName } : Prisma.JsonNull,
         errorMessage: result.error || null,
       },
     })
