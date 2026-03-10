@@ -8,6 +8,7 @@ import { readFile } from 'fs/promises'
 import { Prisma } from '@prisma/client'
 import { extractGoogleAdsData, GoogleAdsAnalysisData } from '@/lib/google/data-extraction'
 import { extractGoogleAnalyticsData, analyticsDataToRows, GoogleAnalyticsData } from '@/lib/google/analytics-extraction'
+import { extractSearchConsoleData, searchConsoleDataToRows, SearchConsoleData } from '@/lib/google/search-console-extraction'
 
 // Convert Google Ads data to rows for AI analysis
 function adsDataToRows(data: GoogleAdsAnalysisData): Record<string, unknown>[] {
@@ -123,6 +124,12 @@ export async function POST(req: NextRequest) {
               const adsRows = adsDataToRows(adsData)
               allData.push(...adsRows)
               console.log(`[Report Generate] Got ${adsRows.length} rows from Google Ads`)
+            } else if (ds.type === 'GOOGLE_SEARCH_CONSOLE') {
+              console.log(`[Report Generate] Extracting Search Console data for ${ds.accountName}`)
+              const scData: SearchConsoleData = await extractSearchConsoleData(ds.id, startDate, endDate)
+              const scRows = searchConsoleDataToRows(scData)
+              allData.push(...scRows)
+              console.log(`[Report Generate] Got ${scRows.length} rows from Search Console`)
             }
           } catch (err) {
             console.error(`[Report Generate] Error extracting data from ${ds.type} ${ds.accountName}:`, err)

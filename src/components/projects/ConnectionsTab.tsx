@@ -42,9 +42,18 @@ function GoogleAnalyticsIcon({ className }: { className?: string }) {
   )
 }
 
+// Google Search Console icon component
+function SearchConsoleIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0016 9.5 6.5 6.5 0 109.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" fill="#4285F4"/>
+    </svg>
+  )
+}
+
 interface DataSource {
   id: string
-  type: 'GOOGLE_ADS' | 'GOOGLE_ANALYTICS'
+  type: 'GOOGLE_ADS' | 'GOOGLE_ANALYTICS' | 'GOOGLE_SEARCH_CONSOLE'
   accountId: string
   accountName: string
   mccId?: string | null
@@ -52,6 +61,7 @@ interface DataSource {
     currency?: string
     timezone?: string
     isManager?: boolean
+    permissionLevel?: string
   } | null
   status: 'CONNECTED' | 'ERROR' | 'EXPIRED' | 'PENDING'
   isActive: boolean
@@ -107,6 +117,10 @@ export function ConnectionsTab({ projectId, projectSlug, dataSources: initialDat
 
   const handleConnectGoogleAnalytics = () => {
     window.location.href = `/api/auth/google-analytics/connect?projectId=${projectId}`
+  }
+
+  const handleConnectSearchConsole = () => {
+    window.location.href = `/api/auth/google-search-console/connect?projectId=${projectId}`
   }
 
   const handleToggleActive = async (dataSourceId: string, currentActive: boolean) => {
@@ -179,6 +193,7 @@ export function ConnectionsTab({ projectId, projectSlug, dataSources: initialDat
 
   const googleAdsConnections = dataSources.filter(ds => ds.type === 'GOOGLE_ADS')
   const analyticsConnections = dataSources.filter(ds => ds.type === 'GOOGLE_ANALYTICS')
+  const searchConsoleConnections = dataSources.filter(ds => ds.type === 'GOOGLE_SEARCH_CONSOLE')
 
   return (
     <div className="space-y-8">
@@ -441,6 +456,120 @@ export function ConnectionsTab({ projectId, projectSlug, dataSources: initialDat
         )}
       </div>
 
+      {/* Google Search Console Section */}
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <SearchConsoleIcon className="w-6 h-6" />
+            <div>
+              <h3 className="font-semibold text-dark">Google Search Console</h3>
+              <p className="text-sm text-gray-500">Conecta Search Console para analizar el rendimiento SEO</p>
+            </div>
+          </div>
+          <button
+            onClick={handleConnectSearchConsole}
+            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-600 transition text-sm"
+          >
+            <Plus className="w-4 h-4" />
+            Conectar sitio
+          </button>
+        </div>
+
+        {searchConsoleConnections.length === 0 ? (
+          <div className="p-6 border border-dashed border-gray-300 rounded-lg text-center">
+            <Link2 className="w-10 h-10 mx-auto mb-3 text-gray-300" />
+            <p className="text-gray-500 text-sm">No hay sitios de Search Console conectados</p>
+            <p className="text-gray-400 text-xs mt-1">
+              Conecta Search Console para analizar consultas de busqueda, posiciones y CTR
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {searchConsoleConnections.map(ds => (
+              <div
+                key={ds.id}
+                className={cn(
+                  'p-4 border rounded-lg transition',
+                  ds.isActive ? 'border-gray-200 bg-white' : 'border-gray-200 bg-gray-50 opacity-60'
+                )}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <SearchConsoleIcon className="w-8 h-8" />
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-medium text-dark">{ds.accountName}</h4>
+                        {getStatusBadge(ds.status)}
+                      </div>
+                      <p className="text-sm text-gray-500">
+                        {ds.accountId}
+                        {ds.metadata?.permissionLevel && ` · ${ds.metadata.permissionLevel}`}
+                      </p>
+                      {ds.lastSyncAt && (
+                        <p className="text-xs text-gray-400 mt-1">
+                          Ultima sincronizacion: {formatDate(ds.lastSyncAt)}
+                        </p>
+                      )}
+                      {ds.lastError && (
+                        <p className="text-xs text-red-500 mt-1">{ds.lastError}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleToggleActive(ds.id, ds.isActive)}
+                      disabled={loading === ds.id}
+                      className={cn(
+                        'p-2 rounded-lg transition',
+                        ds.isActive ? 'text-green-600 hover:bg-green-50' : 'text-gray-400 hover:bg-gray-100'
+                      )}
+                      title={ds.isActive ? 'Desactivar' : 'Activar'}
+                    >
+                      {loading === ds.id ? (
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                      ) : ds.isActive ? (
+                        <ToggleRight className="w-5 h-5" />
+                      ) : (
+                        <ToggleLeft className="w-5 h-5" />
+                      )}
+                    </button>
+
+                    {(ds.status === 'EXPIRED' || ds.status === 'ERROR') && (
+                      <button
+                        onClick={() => handleRefreshToken(ds.id)}
+                        disabled={loading === ds.id}
+                        className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg transition"
+                        title="Refrescar token"
+                      >
+                        {loading === ds.id ? (
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                        ) : (
+                          <RefreshCw className="w-5 h-5" />
+                        )}
+                      </button>
+                    )}
+
+                    <button
+                      onClick={() => handleDelete(ds.id)}
+                      disabled={deletingId === ds.id}
+                      className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition"
+                      title="Desconectar"
+                    >
+                      {deletingId === ds.id ? (
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                      ) : (
+                        <Trash2 className="w-5 h-5" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* Info box */}
       <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
         <div className="flex items-start gap-3">
@@ -448,10 +577,10 @@ export function ConnectionsTab({ projectId, projectSlug, dataSources: initialDat
           <div>
             <h4 className="font-medium text-blue-900">Sobre las conexiones</h4>
             <ul className="mt-2 text-sm text-blue-800 space-y-1">
-              <li>• Los tokens se refrescan automáticamente cuando están próximos a expirar</li>
-              <li>• Los datos de acceso están cifrados con AES-256</li>
-              <li>• Puedes desactivar temporalmente una conexión sin perder la configuración</li>
-              <li>• Con Google Ads conectado, tendrás acceso a la herramienta de Optimización</li>
+              <li>• Los tokens se refrescan automaticamente cuando estan proximos a expirar</li>
+              <li>• Los datos de acceso estan cifrados con AES-256</li>
+              <li>• Puedes desactivar temporalmente una conexion sin perder la configuracion</li>
+              <li>• Con Google Ads conectado, tendras acceso a la herramienta de Optimizacion</li>
             </ul>
           </div>
         </div>

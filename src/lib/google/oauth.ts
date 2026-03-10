@@ -5,7 +5,7 @@
 const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token'
 const GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth'
 
-export type GoogleService = 'google_ads' | 'google_analytics'
+export type GoogleService = 'google_ads' | 'google_analytics' | 'google_search_console'
 
 interface OAuthConfig {
   clientId: string
@@ -57,6 +57,23 @@ export function getOAuthConfig(service: GoogleService): OAuthConfig {
       clientSecret,
       redirectUri: `${baseUrl}/api/auth/google-analytics/callback`,
       scopes: ['https://www.googleapis.com/auth/analytics.readonly'],
+    }
+  }
+
+  if (service === 'google_search_console') {
+    // Search Console uses the same credentials as Analytics
+    const clientId = process.env.GOOGLE_ANALYTICS_CLIENT_ID
+    const clientSecret = process.env.GOOGLE_ANALYTICS_CLIENT_SECRET
+
+    if (!clientId || !clientSecret) {
+      throw new Error('Google Search Console OAuth credentials not configured')
+    }
+
+    return {
+      clientId,
+      clientSecret,
+      redirectUri: `${baseUrl}/api/auth/google-search-console/callback`,
+      scopes: ['https://www.googleapis.com/auth/webmasters.readonly'],
     }
   }
 
