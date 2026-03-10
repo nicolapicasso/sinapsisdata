@@ -18,9 +18,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
     }
 
-    const { mccCustomerId, encryptedAccessToken } = await request.json()
+    const { mccCustomerId, encryptedAccessToken, encryptedRefreshToken } = await request.json()
 
-    if (!mccCustomerId || !encryptedAccessToken) {
+    if (!mccCustomerId || !encryptedAccessToken || !encryptedRefreshToken) {
       return NextResponse.json(
         { error: 'Faltan parámetros requeridos' },
         { status: 400 }
@@ -28,7 +28,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Decrypt the access token
-    const accessToken = decryptTokens({ accessToken: encryptedAccessToken, refreshToken: '' }).accessToken
+    const { accessToken } = decryptTokens({
+      accessToken: encryptedAccessToken,
+      refreshToken: encryptedRefreshToken,
+    })
 
     // List client accounts under the MCC
     console.log(`[Google Ads MCC] Listing clients for MCC ${mccCustomerId}...`)
