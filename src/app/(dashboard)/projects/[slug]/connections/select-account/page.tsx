@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Check, Loader2, AlertCircle } from 'lucide-react'
+import { ArrowLeft, Check, Loader2, AlertCircle, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface GoogleAdsAccount {
@@ -51,6 +51,11 @@ export default function SelectAccountPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // MCC flow state
+  const [selectedMcc, setSelectedMcc] = useState<GoogleAdsAccount | null>(null)
+  const [clientAccounts, setClientAccounts] = useState<GoogleAdsAccount[] | null>(null)
+  const [loadingClients, setLoadingClients] = useState(false)
+
   useEffect(() => {
     if (dataParam) {
       try {
@@ -65,6 +70,51 @@ export default function SelectAccountPage() {
     }
   }, [dataParam])
 
+  // Handle MCC selection - load client accounts
+  const handleMccSelect = async (mcc: GoogleAdsAccount) => {
+    setSelectedMcc(mcc)
+    setSelectedId(null)
+    setClientAccounts(null)
+    setLoadingClients(true)
+    setError(null)
+
+    try {
+      const res = await fetch('/api/auth/google-ads/mcc-accounts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mccCustomerId: mcc.customerId,
+          encryptedAccessToken: data?.accessToken,
+        }),
+      })
+
+      if (!res.ok) {
+        const errorData = await res.json()
+        throw new Error(errorData.error || 'Error al cargar cuentas cliente')
+      }
+
+      const { clients } = await res.json()
+      setClientAccounts(clients)
+
+      if (clients.length === 0) {
+        setError('Este MCC no tiene cuentas cliente accesibles')
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al cargar cuentas cliente')
+      setSelectedMcc(null)
+    } finally {
+      setLoadingClients(false)
+    }
+  }
+
+  // Go back to MCC selection
+  const handleBackToMcc = () => {
+    setSelectedMcc(null)
+    setClientAccounts(null)
+    setSelectedId(null)
+    setError(null)
+  }
+
   const handleSave = async () => {
     if (!data || !selectedId || !type) return
 
@@ -73,20 +123,20 @@ export default function SelectAccountPage() {
 
     try {
       let selectedAccount
-      if (type === 'google_ads') {
-        selectedAccount = data.accounts?.find(a => a.customerId === selectedId)
-      } else if (type === 'google_analytics') {
-        selectedAccount = data.properties?.find(p => p.propertyId === selectedId)
-      } else {
-        selectedAccount = data.sites?.find(s => s.siteUrl === selectedId)
-      }
-
-      if (!selectedAccount) {
-        throw new Error('Cuenta seleccionada no encontrada')
-      }
-
       let payload
+
       if (type === 'google_ads') {
+        // If we selected from MCC clients, use that
+        if (clientAccounts) {
+          selectedAccount = clientAccounts.find(a => a.customerId === selectedId)
+        } else {
+          selectedAccount = data.accounts?.find(a => a.customerId === selectedId)
+        }
+
+        if (!selectedAccount) {
+          throw new Error('Cuenta seleccionada no encontrada')
+        }
+
         const acc = selectedAccount as GoogleAdsAccount
         payload = {
           projectId: data.projectId,
@@ -96,14 +146,23 @@ export default function SelectAccountPage() {
           tokenExpiry: data.tokenExpiry,
           accountId: acc.customerId,
           accountName: acc.name,
-          mccId: acc.isManager ? acc.customerId : null,
+          // If selected from MCC flow, include MCC ID
+          mccId: selectedMcc ? selectedMcc.customerId : (acc.isManager ? acc.customerId : null),
           metadata: {
             currency: acc.currency,
             timezone: acc.timezone,
             isManager: acc.isManager,
+            parentMcc: selectedMcc ? {
+              customerId: selectedMcc.customerId,
+              name: selectedMcc.name,
+            } : null,
           },
         }
       } else if (type === 'google_analytics') {
+        selectedAccount = data.properties?.find(p => p.propertyId === selectedId)
+        if (!selectedAccount) {
+          throw new Error('Cuenta seleccionada no encontrada')
+        }
         const prop = selectedAccount as GA4Property
         payload = {
           projectId: data.projectId,
@@ -120,6 +179,10 @@ export default function SelectAccountPage() {
           },
         }
       } else {
+        selectedAccount = data.sites?.find(s => s.siteUrl === selectedId)
+        if (!selectedAccount) {
+          throw new Error('Cuenta seleccionada no encontrada')
+        }
         const site = selectedAccount as SearchConsoleSite
         payload = {
           projectId: data.projectId,
@@ -183,13 +246,26 @@ export default function SelectAccountPage() {
     )
   }
 
-  const items = type === 'google_ads'
-    ? data.accounts
-    : type === 'google_analytics'
-      ? data.properties
-      : data.sites
   const isGoogleAds = type === 'google_ads'
   const isSearchConsole = type === 'google_search_console'
+
+  // For Google Ads with MCC selected, show client accounts
+  const showingClientAccounts = isGoogleAds && selectedMcc && clientAccounts
+
+  // Determine which items to show
+  let items: (GoogleAdsAccount | GA4Property | SearchConsoleSite)[] | undefined
+  if (showingClientAccounts) {
+    items = clientAccounts
+  } else if (isGoogleAds) {
+    items = data.accounts
+  } else if (type === 'google_analytics') {
+    items = data.properties
+  } else {
+    items = data.sites
+  }
+
+  // Check if we have any MCC accounts (for Google Ads)
+  const hasMccAccounts = isGoogleAds && data.accounts?.some(a => a.isManager)
 
   return (
     <div className="max-w-2xl mx-auto py-8">
@@ -202,11 +278,37 @@ export default function SelectAccountPage() {
       </Link>
 
       <div className="bg-white rounded-xl border border-gray-200 p-6">
+        {/* Breadcrumb for MCC flow */}
+        {selectedMcc && (
+          <div className="flex items-center gap-2 text-sm text-gray-500 mb-4">
+            <button
+              onClick={handleBackToMcc}
+              className="hover:text-primary hover:underline"
+            >
+              Cuentas MCC
+            </button>
+            <ChevronRight className="w-4 h-4" />
+            <span className="text-dark font-medium">{selectedMcc.name}</span>
+          </div>
+        )}
+
         <h1 className="text-xl font-bold text-dark mb-2">
-          Selecciona {isGoogleAds ? 'una cuenta de Google Ads' : isSearchConsole ? 'un sitio de Search Console' : 'una propiedad GA4'}
+          {showingClientAccounts
+            ? 'Selecciona una cuenta cliente'
+            : isGoogleAds
+              ? hasMccAccounts
+                ? 'Selecciona una cuenta MCC o cuenta directa'
+                : 'Selecciona una cuenta de Google Ads'
+              : isSearchConsole
+                ? 'Selecciona un sitio de Search Console'
+                : 'Selecciona una propiedad GA4'}
         </h1>
         <p className="text-gray-600 mb-6">
-          Se encontraron multiples {isGoogleAds ? 'cuentas' : isSearchConsole ? 'sitios' : 'propiedades'}. Selecciona la que deseas conectar.
+          {showingClientAccounts
+            ? `Cuentas cliente bajo ${selectedMcc?.name}`
+            : hasMccAccounts
+              ? 'Selecciona un MCC para ver sus cuentas cliente, o elige una cuenta directa.'
+              : `Se encontraron múltiples ${isGoogleAds ? 'cuentas' : isSearchConsole ? 'sitios' : 'propiedades'}. Selecciona la que deseas conectar.`}
         </p>
 
         {error && (
@@ -215,59 +317,102 @@ export default function SelectAccountPage() {
           </div>
         )}
 
-        <div className="space-y-3 mb-6">
-          {items?.map((item) => {
-            const id = isGoogleAds
-              ? (item as GoogleAdsAccount).customerId
-              : isSearchConsole
-                ? (item as SearchConsoleSite).siteUrl
-                : (item as GA4Property).propertyId
-            const name = item.name
-            const isManager = isGoogleAds && (item as GoogleAdsAccount).isManager
+        {/* Loading state for client accounts */}
+        {loadingClients && (
+          <div className="py-8 text-center">
+            <Loader2 className="w-8 h-8 mx-auto animate-spin text-primary" />
+            <p className="mt-4 text-gray-600">Cargando cuentas cliente...</p>
+          </div>
+        )}
 
-            return (
-              <button
-                key={id}
-                onClick={() => setSelectedId(id)}
-                className={cn(
-                  'w-full p-4 text-left border rounded-lg transition',
-                  selectedId === id
-                    ? 'border-primary bg-primary/5'
-                    : 'border-gray-200 hover:border-gray-300'
-                )}
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-dark">{name}</span>
-                      {isManager && (
-                        <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">
-                          MCC
-                        </span>
-                      )}
+        {/* Account list */}
+        {!loadingClients && (
+          <div className="space-y-3 mb-6">
+            {items?.map((item) => {
+              const id = isGoogleAds
+                ? (item as GoogleAdsAccount).customerId
+                : isSearchConsole
+                  ? (item as SearchConsoleSite).siteUrl
+                  : (item as GA4Property).propertyId
+              const name = item.name
+              const isManager = isGoogleAds && (item as GoogleAdsAccount).isManager
+
+              // For MCC accounts in first step, show different behavior
+              if (isManager && !showingClientAccounts) {
+                return (
+                  <button
+                    key={id}
+                    onClick={() => handleMccSelect(item as GoogleAdsAccount)}
+                    className="w-full p-4 text-left border border-gray-200 rounded-lg hover:border-primary hover:bg-primary/5 transition group"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-dark">{name}</span>
+                          <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">
+                            MCC
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-500 mt-1">
+                          ID: {id}
+                          {(item as GoogleAdsAccount).currency && ` · ${(item as GoogleAdsAccount).currency}`}
+                        </p>
+                      </div>
+                      <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-primary transition" />
                     </div>
-                    <p className="text-sm text-gray-500 mt-1">
-                      {isGoogleAds ? 'ID: ' : isSearchConsole ? '' : 'Property ID: '}
-                      {id}
-                      {!isSearchConsole && (item as GoogleAdsAccount | GA4Property).currency && ` · ${(item as GoogleAdsAccount | GA4Property).currency}`}
-                    </p>
-                  </div>
-                  {selectedId === id && (
-                    <Check className="w-5 h-5 text-primary" />
+                  </button>
+                )
+              }
+
+              // Regular account selection
+              return (
+                <button
+                  key={id}
+                  onClick={() => setSelectedId(id)}
+                  className={cn(
+                    'w-full p-4 text-left border rounded-lg transition',
+                    selectedId === id
+                      ? 'border-primary bg-primary/5'
+                      : 'border-gray-200 hover:border-gray-300'
                   )}
-                </div>
-              </button>
-            )
-          })}
-        </div>
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-dark">{name}</span>
+                      </div>
+                      <p className="text-sm text-gray-500 mt-1">
+                        {isGoogleAds ? 'ID: ' : isSearchConsole ? '' : 'Property ID: '}
+                        {id}
+                        {!isSearchConsole && (item as GoogleAdsAccount | GA4Property).currency && ` · ${(item as GoogleAdsAccount | GA4Property).currency}`}
+                      </p>
+                    </div>
+                    {selectedId === id && (
+                      <Check className="w-5 h-5 text-primary" />
+                    )}
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+        )}
 
         <div className="flex justify-end gap-3">
-          <Link
-            href={`/projects/${data.projectSlug}?tab=connections`}
-            className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition"
-          >
-            Cancelar
-          </Link>
+          {selectedMcc ? (
+            <button
+              onClick={handleBackToMcc}
+              className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition"
+            >
+              Volver a MCCs
+            </button>
+          ) : (
+            <Link
+              href={`/projects/${data.projectSlug}?tab=connections`}
+              className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition"
+            >
+              Cancelar
+            </Link>
+          )}
           <button
             onClick={handleSave}
             disabled={!selectedId || saving}
