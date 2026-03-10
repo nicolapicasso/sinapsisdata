@@ -14,7 +14,6 @@ import {
   Zap,
   ChevronDown,
   ChevronUp,
-  ExternalLink,
 } from 'lucide-react'
 import { cn, formatDate } from '@/lib/utils'
 
@@ -68,6 +67,7 @@ export function OptimizationActionsTab({ projectId, projectSlug }: OptimizationA
 
   useEffect(() => {
     fetchActions()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId])
 
   async function fetchActions() {
