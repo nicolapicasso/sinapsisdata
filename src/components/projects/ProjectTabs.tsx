@@ -26,8 +26,10 @@ import {
   Check,
   Globe,
   Lock,
+  Link2,
 } from 'lucide-react'
 import { cn, formatDate } from '@/lib/utils'
+import { ConnectionsTab } from './ConnectionsTab'
 
 interface Report {
   id: string
@@ -77,8 +79,28 @@ interface Overview {
   createdBy: { name: string }
 }
 
+interface DataSource {
+  id: string
+  type: 'GOOGLE_ADS' | 'GOOGLE_ANALYTICS'
+  accountId: string
+  accountName: string
+  mccId?: string | null
+  metadata?: {
+    currency?: string
+    timezone?: string
+    isManager?: boolean
+  } | null
+  status: 'CONNECTED' | 'ERROR' | 'EXPIRED' | 'PENDING'
+  isActive: boolean
+  lastSyncAt?: Date | null
+  lastError?: string | null
+  createdAt: Date
+  updatedAt: Date
+}
+
 interface ProjectTabsProps {
   project: {
+    id: string
     slug: string
     _count: {
       reports: number
@@ -90,6 +112,7 @@ interface ProjectTabsProps {
   questions: Question[]
   proposals: Proposal[]
   approvedProposals?: Proposal[]
+  dataSources?: DataSource[]
   canEdit: boolean
   userRole: 'ADMIN' | 'CONSULTANT' | 'CLIENT'
 }
@@ -100,6 +123,7 @@ export function ProjectTabs({
   questions,
   proposals,
   approvedProposals = [],
+  dataSources = [],
   canEdit,
   userRole,
 }: ProjectTabsProps) {
@@ -225,6 +249,12 @@ export function ProjectTabs({
           icon: Lightbulb,
           count: pendingProposals.length,
           highlight: pendingProposals.length > 0,
+        },
+        {
+          id: 'connections',
+          label: 'Conexiones',
+          icon: Link2,
+          count: dataSources.length,
         },
       ]
 
@@ -903,6 +933,15 @@ export function ProjectTabs({
               </div>
             )}
           </div>
+        )}
+
+        {/* Tab de Conexiones (solo para admin/consultor) */}
+        {activeTab === 'connections' && !isClient && (
+          <ConnectionsTab
+            projectId={project.id}
+            projectSlug={project.slug}
+            dataSources={dataSources}
+          />
         )}
       </div>
 

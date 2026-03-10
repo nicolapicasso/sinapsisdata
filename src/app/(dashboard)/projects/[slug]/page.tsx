@@ -49,6 +49,23 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
         where: { status: 'PENDING' },
         orderBy: { createdAt: 'desc' },
       },
+      dataSources: {
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          type: true,
+          accountId: true,
+          accountName: true,
+          mccId: true,
+          metadata: true,
+          status: true,
+          isActive: true,
+          lastSyncAt: true,
+          lastError: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      },
       _count: {
         select: {
           reports: true,
@@ -121,6 +138,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
         questions={project.questions}
         proposals={project.proposals}
         approvedProposals={approvedProposals}
+        dataSources={project.dataSources}
         canEdit={canEdit}
         userRole={effectiveRole}
       />

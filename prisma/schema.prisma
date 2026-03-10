@@ -30,10 +30,11 @@ model User {
   updatedAt     DateTime  @updatedAt
 
   // Relaciones
-  projectMembers  ProjectMember[]
-  createdReports  Report[]         @relation("ReportCreator")
-  answeredQuestions AIQuestion[]   @relation("QuestionAnswerer")
-  votedProposals    AIProposal[]   @relation("ProposalVoter")
+  projectMembers      ProjectMember[]
+  createdReports      Report[]              @relation("ReportCreator")
+  answeredQuestions   AIQuestion[]          @relation("QuestionAnswerer")
+  votedProposals      AIProposal[]          @relation("ProposalVoter")
+  optimizationActions OptimizationAction[]
 
   @@map("users")
 }
@@ -69,11 +70,12 @@ model Project {
   updatedAt     DateTime      @updatedAt
 
   // Relaciones
-  members       ProjectMember[]
-  reports       Report[]
-  questions     AIQuestion[]
-  proposals     AIProposal[]
-  dataSources   DataSource[]
+  members             ProjectMember[]
+  reports             Report[]
+  questions           AIQuestion[]
+  proposals           AIProposal[]
+  dataSources         DataSource[]
+  optimizationActions OptimizationAction[]
 
   @@map("projects")
 }
@@ -266,17 +268,12 @@ model AIProposal {
 }
 
 // ============================================
-// FUENTES DE DATOS (Fase 2 - Opcional)
+// FUENTES DE DATOS - Google Ads & GA4
 // ============================================
 
 enum DataSourceType {
-  GOOGLE_ANALYTICS
   GOOGLE_ADS
-  GOOGLE_MERCHANT
-  META_ADS
-  INSTAGRAM
-  YOUTUBE
-  CUSTOM_API
+  GOOGLE_ANALYTICS
 }
 
 enum DataSourceStatus {
@@ -287,26 +284,96 @@ enum DataSourceStatus {
 }
 
 model DataSource {
-  id          String           @id @default(cuid())
-  projectId   String
+  id           String           @id @default(cuid())
+  projectId    String
 
-  type        DataSourceType
-  name        String           // Nombre descriptivo
+  type         DataSourceType
 
-  // Credenciales (encriptadas)
-  credentials String
+  // Tokens OAuth (cifrados con AES-256-GCM)
+  accessToken  String           // Cifrado
+  refreshToken String           // Cifrado
+  tokenExpiry  DateTime?
 
-  // Configuración específica
-  config      Json?
+  // Identificadores de cuenta
+  accountId    String           // Google Ads Customer ID (sin guiones) / GA4 Property ID
+  accountName  String           // Nombre legible de la cuenta
+  mccId        String?          // Solo Google Ads: MCC login_customer_id si aplica
 
-  status      DataSourceStatus @default(PENDING)
-  lastSyncAt  DateTime?
-  lastError   String?
+  // Metadata adicional
+  metadata     Json?            // {currency, timezone, etc.}
 
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
+  status       DataSourceStatus @default(PENDING)
+  isActive     Boolean          @default(true)
+  lastSyncAt   DateTime?
+  lastError    String?
 
-  project     Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  project      Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  actions      OptimizationAction[]
 
   @@map("data_sources")
+}
+
+// ============================================
+// ACCIONES DE OPTIMIZACIÓN - Google Ads
+// ============================================
+
+enum OptimizationActionType {
+  NEGATIVE_KEYWORD       // Añadir keyword negativa
+  EXCLUDE_PLACEMENT      // Excluir placement
+  PAUSE_KEYWORD          // Pausar keyword
+  ENABLE_KEYWORD         // Habilitar keyword
+  UPDATE_KEYWORD_BID     // Modificar puja de keyword
+  UPDATE_CAMPAIGN_BUDGET // Modificar presupuesto de campaña
+  PAUSE_CAMPAIGN         // Pausar campaña
+  ENABLE_CAMPAIGN        // Habilitar campaña
+}
+
+enum OptimizationActionStatus {
+  PENDING    // Sugerida por Claude, pendiente de revisión
+  APPROVED   // Aprobada por consultor, pendiente de ejecución
+  REJECTED   // Rechazada por consultor
+  EXECUTED   // Ejecutada exitosamente en Google Ads
+  FAILED     // Falló la ejecución
+}
+
+model OptimizationAction {
+  id           String                   @id @default(cuid())
+  projectId    String
+  dataSourceId String
+  userId       String                   // Quien aprobó/rechazó
+
+  type         OptimizationActionType
+
+  // Detalles de la acción
+  payload      Json                     // Datos a enviar a Google Ads API
+  targetEntity Json                     // {campaignId, adGroupId, keyword, etc.}
+
+  // Justificación de Claude
+  claudeReason String
+
+  // Métricas que motivaron la sugerencia
+  metrics      Json?                    // {impressions, clicks, cost, conversions, etc.}
+
+  status       OptimizationActionStatus @default(PENDING)
+
+  // Respuesta del usuario
+  userComment  String?
+  reviewedAt   DateTime?
+
+  // Ejecución
+  executedAt   DateTime?
+  result       Json?                    // Respuesta de Google Ads API
+  errorMessage String?
+
+  createdAt    DateTime                 @default(now())
+  updatedAt    DateTime                 @updatedAt
+
+  project      Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  dataSource   DataSource @relation(fields: [dataSourceId], references: [id], onDelete: Cascade)
+  user         User       @relation(fields: [userId], references: [id])
+
+  @@map("optimization_actions")
 }
