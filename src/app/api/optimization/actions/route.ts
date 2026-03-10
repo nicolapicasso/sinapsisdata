@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { OptimizationActionType, OptimizationActionStatus } from '@prisma/client'
+import { OptimizationActionType, OptimizationActionStatus, Prisma } from '@prisma/client'
 
 /**
  * GET /api/optimization/actions?projectId=xxx
@@ -149,10 +149,10 @@ export async function POST(request: NextRequest) {
             dataSourceId,
             userId: session.user.id,
             type: suggestion.type as OptimizationActionType,
-            payload: suggestion.payload,
-            targetEntity: suggestion.targetEntity,
+            payload: suggestion.payload as Prisma.InputJsonValue,
+            targetEntity: suggestion.targetEntity as Prisma.InputJsonValue,
             claudeReason: `${suggestion.title}\n\n${suggestion.description}\n\nRazón: ${suggestion.reason}`,
-            metrics: suggestion.metrics || null,
+            metrics: suggestion.metrics ? (suggestion.metrics as Prisma.InputJsonValue) : Prisma.JsonNull,
             status: 'PENDING',
           },
         })
