@@ -83,17 +83,20 @@ export async function listAccounts(accessToken: string): Promise<GA4Account[]> {
 
 /**
  * List all GA4 properties accessible to the user
+ * Uses accountSummaries endpoint which doesn't require a filter
  */
 export async function listProperties(accessToken: string): Promise<GA4Property[]> {
-  interface PropertiesResponse {
-    properties?: Array<{
-      name: string
+  interface AccountSummariesResponse {
+    accountSummaries?: Array<{
+      name: string // accounts/123
+      account: string // accounts/123
       displayName: string
-      timeZone: string
-      currencyCode: string
-      industryCategory?: string
-      propertyType?: string
-      parent?: string
+      propertySummaries?: Array<{
+        property: string // properties/456
+        displayName: string
+        propertyType?: string
+        parent?: string
+      }>
     }>
     nextPageToken?: string
   }
@@ -103,18 +106,28 @@ export async function listProperties(accessToken: string): Promise<GA4Property[]
 
   do {
     const url = pageToken
-      ? `${GA_ADMIN_API_URL}/properties?pageToken=${pageToken}`
-      : `${GA_ADMIN_API_URL}/properties`
+      ? `${GA_ADMIN_API_URL}/accountSummaries?pageToken=${pageToken}`
+      : `${GA_ADMIN_API_URL}/accountSummaries`
 
-    const response = await makeRequest<PropertiesResponse>(url, accessToken)
+    const response = await makeRequest<AccountSummariesResponse>(url, accessToken)
 
-    if (response.properties) {
-      properties.push(
-        ...response.properties.map(p => ({
-          ...p,
-          propertyId: p.name.replace('properties/', ''),
-        }))
-      )
+    if (response.accountSummaries) {
+      for (const account of response.accountSummaries) {
+        if (account.propertySummaries) {
+          for (const prop of account.propertySummaries) {
+            const propertyId = prop.property.replace('properties/', '')
+            properties.push({
+              name: prop.property,
+              propertyId,
+              displayName: prop.displayName,
+              timeZone: 'UTC', // Will be fetched when needed
+              currencyCode: 'USD', // Will be fetched when needed
+              propertyType: prop.propertyType,
+              parent: account.name,
+            })
+          }
+        }
+      }
     }
 
     pageToken = response.nextPageToken
