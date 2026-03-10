@@ -202,8 +202,7 @@ async function extractTrafficSources(
       'totalUsers',
       'newUsers',
       'bounceRate',
-      'conversions',
-      'totalRevenue',
+      'engagedSessions',
     ],
     limit: 50,
   })
@@ -215,8 +214,8 @@ async function extractTrafficSources(
     users: Number(row.metrics.totalUsers) || 0,
     newUsers: Number(row.metrics.newUsers) || 0,
     bounceRate: Number(row.metrics.bounceRate) || 0,
-    conversions: Number(row.metrics.conversions) || 0,
-    revenue: Number(row.metrics.totalRevenue) || 0,
+    conversions: Number(row.metrics.engagedSessions) || 0,
+    revenue: 0,
   }))
 }
 
@@ -235,9 +234,9 @@ async function extractTopPages(
     dimensions: ['pagePath', 'pageTitle'],
     metrics: [
       'screenPageViews',
-      'entrances',
+      'sessions',
       'bounceRate',
-      'averageSessionDuration',
+      'userEngagementDuration',
     ],
     limit: 50,
   })
@@ -246,10 +245,10 @@ async function extractTopPages(
     pagePath: row.dimensions.pagePath,
     pageTitle: row.dimensions.pageTitle || row.dimensions.pagePath,
     pageviews: Number(row.metrics.screenPageViews) || 0,
-    uniquePageviews: Number(row.metrics.screenPageViews) || 0, // GA4 doesn't have unique pageviews
-    avgTimeOnPage: Number(row.metrics.averageSessionDuration) || 0,
-    entrances: Number(row.metrics.entrances) || 0,
-    exitRate: 0, // Calculated separately if needed
+    uniquePageviews: Number(row.metrics.screenPageViews) || 0,
+    avgTimeOnPage: Number(row.metrics.userEngagementDuration) || 0,
+    entrances: Number(row.metrics.sessions) || 0,
+    exitRate: 0,
     bounceRate: Number(row.metrics.bounceRate) || 0,
   }))
 }
@@ -272,7 +271,7 @@ async function extractDevices(
       'totalUsers',
       'bounceRate',
       'averageSessionDuration',
-      'conversions',
+      'engagedSessions',
     ],
   })
 
@@ -282,7 +281,7 @@ async function extractDevices(
     users: Number(row.metrics.totalUsers) || 0,
     bounceRate: Number(row.metrics.bounceRate) || 0,
     avgSessionDuration: Number(row.metrics.averageSessionDuration) || 0,
-    conversions: Number(row.metrics.conversions) || 0,
+    conversions: Number(row.metrics.engagedSessions) || 0,
   }))
 }
 
@@ -303,7 +302,7 @@ async function extractGeographic(
       'sessions',
       'totalUsers',
       'bounceRate',
-      'conversions',
+      'engagedSessions',
     ],
     limit: 50,
   })
@@ -314,7 +313,7 @@ async function extractGeographic(
     sessions: Number(row.metrics.sessions) || 0,
     users: Number(row.metrics.totalUsers) || 0,
     bounceRate: Number(row.metrics.bounceRate) || 0,
-    conversions: Number(row.metrics.conversions) || 0,
+    conversions: Number(row.metrics.engagedSessions) || 0,
   }))
 }
 
@@ -368,16 +367,31 @@ export async function extractGoogleAnalyticsData(
 
   console.log(`[GA4] Extracting data for ${propertyId} from ${startDate} to ${endDate}`)
 
-  // Extract all data in parallel
-  const [trafficOverview, trafficSources, topPages, devices, geographic, conversions] =
-    await Promise.all([
-      extractTrafficOverview(accessToken, propertyId, startDate, endDate),
-      extractTrafficSources(accessToken, propertyId, startDate, endDate),
-      extractTopPages(accessToken, propertyId, startDate, endDate),
-      extractDevices(accessToken, propertyId, startDate, endDate),
-      extractGeographic(accessToken, propertyId, startDate, endDate),
-      extractConversions(accessToken, propertyId, startDate, endDate),
-    ])
+  // Extract all data in parallel with error handling for each
+  const results = await Promise.allSettled([
+    extractTrafficOverview(accessToken, propertyId, startDate, endDate),
+    extractTrafficSources(accessToken, propertyId, startDate, endDate),
+    extractTopPages(accessToken, propertyId, startDate, endDate),
+    extractDevices(accessToken, propertyId, startDate, endDate),
+    extractGeographic(accessToken, propertyId, startDate, endDate),
+    extractConversions(accessToken, propertyId, startDate, endDate),
+  ])
+
+  // Extract results, using empty arrays for failed extractions
+  const trafficOverview = results[0].status === 'fulfilled' ? results[0].value : []
+  const trafficSources = results[1].status === 'fulfilled' ? results[1].value : []
+  const topPages = results[2].status === 'fulfilled' ? results[2].value : []
+  const devices = results[3].status === 'fulfilled' ? results[3].value : []
+  const geographic = results[4].status === 'fulfilled' ? results[4].value : []
+  const conversions = results[5].status === 'fulfilled' ? results[5].value : []
+
+  // Log any failures
+  results.forEach((r, i) => {
+    if (r.status === 'rejected') {
+      const names = ['trafficOverview', 'trafficSources', 'topPages', 'devices', 'geographic', 'conversions']
+      console.error(`[GA4] Failed to extract ${names[i]}:`, r.reason)
+    }
+  })
 
   // Calculate summary
   const totalSessions = trafficOverview.reduce((sum, d) => sum + d.sessions, 0)
