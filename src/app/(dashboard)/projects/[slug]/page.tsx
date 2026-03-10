@@ -6,10 +6,11 @@ import { ProjectHeader } from '@/components/projects/ProjectHeader'
 import { ProjectTabs } from '@/components/projects/ProjectTabs'
 
 interface ProjectPageProps {
-  params: { slug: string }
+  params: Promise<{ slug: string }>
 }
 
 export default async function ProjectPage({ params }: ProjectPageProps) {
+  const { slug } = await params
   const session = await getServerSession(authOptions)
 
   if (!session) {
@@ -17,7 +18,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
   }
 
   const project = await prisma.project.findUnique({
-    where: { slug: params.slug },
+    where: { slug },
     include: {
       members: {
         include: {
