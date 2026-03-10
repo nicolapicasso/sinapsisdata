@@ -155,9 +155,10 @@ export async function GET(request: NextRequest) {
     )
   } catch (error) {
     console.error('[Google Ads Callback] Error:', error)
-    return redirectWithError(
-      error instanceof Error ? error.message : 'Error desconocido'
-    )
+    const errorMessage = error instanceof Error
+      ? `${error.message}${error.stack ? ` | Stack: ${error.stack.split('\n')[1]?.trim()}` : ''}`
+      : 'Error desconocido'
+    return redirectWithError(errorMessage)
   }
 }
 

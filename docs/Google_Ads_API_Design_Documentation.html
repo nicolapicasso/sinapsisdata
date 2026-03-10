@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SinapsisData - Google Ads API Design Documentation</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+        .header {
+            text-align: center;
+            border-bottom: 3px solid #4285f4;
+            padding-bottom: 30px;
+            margin-bottom: 40px;
+        }
+        .logo-text {
+            font-size: 32px;
+            font-weight: bold;
+            color: #4285f4;
+        }
+        .subtitle {
+            font-size: 18px;
+            color: #666;
+            margin-top: 10px;
+        }
+        .meta-info {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .meta-info table {
+            width: 100%;
+        }
+        .meta-info td {
+            padding: 5px 10px;
+        }
+        .meta-info td:first-child {
+            font-weight: bold;
+            width: 150px;
+        }
+        h1 {
+            color: #4285f4;
+            font-size: 24px;
+            margin: 40px 0 20px 0;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+        h2 {
+            color: #333;
+            font-size: 18px;
+            margin: 30px 0 15px 0;
+        }
+        h3 {
+            color: #555;
+            font-size: 16px;
+            margin: 20px 0 10px 0;
+        }
+        p {
+            margin: 10px 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+        th {
+            background: #4285f4;
+            color: white;
+        }
+        tr:nth-child(even) {
+            background: #f8f9fa;
+        }
+        .highlight-box {
+            background: #e8f0fe;
+            border-left: 4px solid #4285f4;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        .warning-box {
+            background: #fef7e0;
+            border-left: 4px solid #f9ab00;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        .architecture-diagram {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 8px;
+            font-family: monospace;
+            white-space: pre;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+        ul {
+            margin: 10px 0 10px 30px;
+        }
+        li {
+            margin: 5px 0;
+        }
+        .footer {
+            margin-top: 50px;
+            padding-top: 20px;
+            border-top: 2px solid #e0e0e0;
+            text-align: center;
+            color: #666;
+        }
+        @media print {
+            body {
+                padding: 20px;
+            }
+            .header {
+                page-break-after: avoid;
+            }
+            h1 {
+                page-break-after: avoid;
+            }
+            table {
+                page-break-inside: avoid;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <div class="logo-text">SinapsisData</div>
+    <div class="subtitle">Google Ads API Integration - Design Documentation</div>
+</div>
+
+<div class="meta-info">
+    <table>
+        <tr><td>Company:</td><td>Somos Sinapsis SL</td></tr>
+        <tr><td>Product:</td><td>SinapsisData - Marketing Analytics Platform</td></tr>
+        <tr><td>Website:</td><td>https://sinapsis.agency</td></tr>
+        <tr><td>Contact:</td><td>nicola.picasso@somosinapsis.com</td></tr>
+        <tr><td>Date:</td><td>March 2026</td></tr>
+        <tr><td>Version:</td><td>1.0</td></tr>
+    </table>
+</div>
+
+<h1>1. Executive Summary</h1>
+
+<p>SinapsisData is an internal reporting and analytics platform developed by Somos Sinapsis SL, a digital marketing agency based in Spain. The platform consolidates marketing data from multiple sources to generate automated performance reports for our agency's clients.</p>
+
+<p>The Google Ads API integration will enable us to:</p>
+<ul>
+    <li>Automatically retrieve campaign performance metrics</li>
+    <li>Generate consolidated marketing reports</li>
+    <li>Provide clients with data-driven insights</li>
+    <li>Analyze search terms and keyword performance</li>
+</ul>
+
+<div class="highlight-box">
+    <strong>Important:</strong> This tool is for internal agency use only. We do not resell API access or provide this tool to third parties.
+</div>
+
+<h1>2. Company Information</h1>
+
+<table>
+    <tr><th>Field</th><th>Details</th></tr>
+    <tr><td>Legal Name</td><td>Somos Sinapsis SL</td></tr>
+    <tr><td>Website</td><td>https://sinapsis.agency</td></tr>
+    <tr><td>Industry</td><td>Digital Marketing Agency</td></tr>
+    <tr><td>Location</td><td>Spain</td></tr>
+    <tr><td>Primary Service</td><td>Performance Marketing & Analytics</td></tr>
+</table>
+
+<h2>2.1 Services We Provide</h2>
+<ul>
+    <li>Google Ads campaign management</li>
+    <li>Performance marketing strategy</li>
+    <li>Marketing analytics and reporting</li>
+    <li>Conversion rate optimization</li>
+</ul>
+
+<h1>3. Tool Overview</h1>
+
+<h2>3.1 Purpose</h2>
+<p>SinapsisData automates the collection and visualization of marketing performance data for our agency clients. Instead of manually exporting data from multiple platforms, the tool centralizes all metrics in one dashboard.</p>
+
+<h2>3.2 Target Users</h2>
+<ul>
+    <li><strong>Internal:</strong> Sinapsis Agency account managers and analysts</li>
+    <li><strong>External:</strong> Agency clients (read-only access to their own reports)</li>
+</ul>
+
+<h2>3.3 Key Features</h2>
+
+<table>
+    <tr><th>Feature</th><th>Description</th><th>API Access</th></tr>
+    <tr><td>Campaign Metrics Dashboard</td><td>Display impressions, clicks, conversions, cost, ROAS</td><td>Read-only</td></tr>
+    <tr><td>Automated Reports</td><td>Generate weekly/monthly performance reports</td><td>Read-only</td></tr>
+    <tr><td>Search Terms Analysis</td><td>Analyze search queries triggering ads</td><td>Read-only</td></tr>
+    <tr><td>Keyword Performance</td><td>Track keyword-level metrics</td><td>Read-only</td></tr>
+    <tr><td>Budget Monitoring</td><td>Alert when budgets are nearly depleted</td><td>Read-only</td></tr>
+</table>
+
+<h1>4. Technical Architecture</h1>
+
+<h2>4.1 Technology Stack</h2>
+
+<table>
+    <tr><th>Component</th><th>Technology</th></tr>
+    <tr><td>Frontend</td><td>Next.js 14 (React)</td></tr>
+    <tr><td>Backend</td><td>Next.js API Routes</td></tr>
+    <tr><td>Database</td><td>PostgreSQL with Prisma ORM</td></tr>
+    <tr><td>Authentication</td><td>NextAuth.js</td></tr>
+    <tr><td>AI Analysis</td><td>Claude API (Anthropic)</td></tr>
+    <tr><td>Hosting</td><td>Cloud Infrastructure (EU Region)</td></tr>
+</table>
+
+<h2>4.2 System Architecture</h2>
+
+<div class="architecture-diagram">
++------------------+     +-------------------+     +------------------+
+|                  |     |                   |     |                  |
+|  Google Ads API  +---->+  SinapsisData     +---->+  PostgreSQL DB   |
+|  (Data Source)   |     |  Backend          |     |  (Data Storage)  |
+|                  |     |                   |     |                  |
++------------------+     +--------+----------+     +------------------+
+                                  |
+                                  v
+                         +--------+----------+
+                         |                   |
+                         |  Web Dashboard    |
+                         |  (Client Reports) |
+                         |                   |
+                         +-------------------+
+</div>
+
+<h2>4.3 Data Flow</h2>
+<ol>
+    <li><strong>Authentication:</strong> OAuth 2.0 flow to obtain access tokens</li>
+    <li><strong>Data Retrieval:</strong> Scheduled API calls to fetch campaign metrics</li>
+    <li><strong>Data Storage:</strong> Metrics stored in PostgreSQL database</li>
+    <li><strong>Report Generation:</strong> AI-powered analysis generates insights</li>
+    <li><strong>Delivery:</strong> Reports available via web dashboard or email</li>
+</ol>
+
+<h1>5. Google Ads API Usage Details</h1>
+
+<h2>5.1 Resources We Will Access</h2>
+
+<table>
+    <tr><th>Resource</th><th>Purpose</th><th>Access Type</th></tr>
+    <tr><td>customers</td><td>List managed accounts</td><td>Read</td></tr>
+    <tr><td>campaigns</td><td>Get campaign performance</td><td>Read</td></tr>
+    <tr><td>ad_groups</td><td>Get ad group metrics</td><td>Read</td></tr>
+    <tr><td>ads</td><td>Get ad performance</td><td>Read</td></tr>
+    <tr><td>keywords</td><td>Get keyword metrics</td><td>Read</td></tr>
+    <tr><td>search_terms</td><td>Analyze search queries</td><td>Read</td></tr>
+</table>
+
+<h2>5.2 API Call Patterns</h2>
+<ul>
+    <li><strong>Frequency:</strong> Daily batch updates (off-peak hours)</li>
+    <li><strong>Volume:</strong> Estimated 500-2,000 API calls per day</li>
+    <li><strong>Caching:</strong> 24-hour cache to minimize redundant calls</li>
+</ul>
+
+<div class="warning-box">
+    <strong>We Will NOT Use the API For:</strong>
+    <ul>
+        <li>Making changes to campaigns automatically</li>
+        <li>Bid adjustments without manual approval</li>
+        <li>Creating or deleting campaigns</li>
+        <li>Any write operations without explicit client authorization</li>
+    </ul>
+</div>
+
+<h1>6. Data Security & Privacy</h1>
+
+<h2>6.1 Authentication & Authorization</h2>
+
+<table>
+    <tr><th>Security Measure</th><th>Implementation</th></tr>
+    <tr><td>OAuth 2.0</td><td>Industry-standard authentication</td></tr>
+    <tr><td>Token Storage</td><td>Encrypted at rest (AES-256)</td></tr>
+    <tr><td>Access Control</td><td>Role-based permissions per client</td></tr>
+    <tr><td>Session Management</td><td>Secure, HTTP-only cookies</td></tr>
+</table>
+
+<h2>6.2 Data Protection</h2>
+<ul>
+    <li><strong>Encryption in Transit:</strong> TLS 1.3 for all connections</li>
+    <li><strong>Encryption at Rest:</strong> AES-256 database encryption</li>
+    <li><strong>Data Retention:</strong> Configurable per client (default: 24 months)</li>
+    <li><strong>Data Isolation:</strong> Each client can only access their own data</li>
+</ul>
+
+<h2>6.3 GDPR Compliance</h2>
+<p>As a Spanish company, we fully comply with GDPR:</p>
+<ul>
+    <li>Data processing agreements with all clients</li>
+    <li>Right to data portability and deletion</li>
+    <li>Privacy policy clearly documented</li>
+    <li>Data stored in EU data centers</li>
+</ul>
+
+<h1>7. User Interface Overview</h1>
+
+<h2>7.1 Dashboard</h2>
+<p>The main dashboard displays key performance indicators:</p>
+<ul>
+    <li>Total spend vs. budget</li>
+    <li>Conversion metrics (leads, sales)</li>
+    <li>ROAS and CPA trends</li>
+    <li>Campaign status overview</li>
+</ul>
+
+<h2>7.2 Automated Reports</h2>
+<p>Reports include:</p>
+<ul>
+    <li>Executive summary with AI-generated insights</li>
+    <li>Detailed performance tables</li>
+    <li>Trend charts and visualizations</li>
+    <li>Recommendations for optimization</li>
+</ul>
+
+<h2>7.3 Client Access</h2>
+<p>Clients receive:</p>
+<ul>
+    <li>Read-only access to their reports</li>
+    <li>Shareable public links with expiration</li>
+    <li>Email notifications for new reports</li>
+</ul>
+
+<h1>8. Implementation Timeline</h1>
+
+<table>
+    <tr><th>Phase</th><th>Description</th><th>Duration</th></tr>
+    <tr><td>Phase 1</td><td>OAuth integration & authentication</td><td>2 weeks</td></tr>
+    <tr><td>Phase 2</td><td>Campaign & metrics data retrieval</td><td>2 weeks</td></tr>
+    <tr><td>Phase 3</td><td>Dashboard visualization</td><td>2 weeks</td></tr>
+    <tr><td>Phase 4</td><td>Automated report generation</td><td>2 weeks</td></tr>
+    <tr><td>Phase 5</td><td>Testing & client rollout</td><td>2 weeks</td></tr>
+</table>
+
+<h1>9. Support & Compliance</h1>
+
+<h2>9.1 Contact Information</h2>
+<table>
+    <tr><th>Role</th><th>Contact</th></tr>
+    <tr><td>Technical Lead</td><td>nicola.picasso@somosinapsis.com</td></tr>
+    <tr><td>Company Website</td><td>https://sinapsis.agency</td></tr>
+</table>
+
+<h2>9.2 Compliance Commitment</h2>
+<p>We commit to:</p>
+<ul>
+    <li>Following all Google Ads API Terms of Service</li>
+    <li>Implementing required disclosures for clients</li>
+    <li>Maintaining up-to-date API client libraries</li>
+    <li>Responding promptly to any compliance requests</li>
+</ul>
+
+<h1>10. Terms of Service Acknowledgment</h1>
+
+<div class="highlight-box">
+    <p>We acknowledge and agree to:</p>
+    <ul>
+        <li>Google Ads API Terms and Conditions</li>
+        <li>Google API Services User Data Policy</li>
+        <li>Required Minimum Functionality requirements</li>
+    </ul>
+</div>
+
+<h2>No Reselling Statement</h2>
+<p>This tool is exclusively for internal use by Somos Sinapsis SL to service our direct clients. We do not:</p>
+<ul>
+    <li>Resell API access to third parties</li>
+    <li>Provide this tool as a commercial product</li>
+    <li>Allow access to non-clients</li>
+</ul>
+
+<div class="footer">
+    <p><strong>Document prepared by:</strong> Somos Sinapsis SL</p>
+    <p><strong>Date:</strong> March 2026</p>
+    <p><strong>For:</strong> Google Ads API Basic Access Application</p>
+</div>
+
+</body>
+</html>
