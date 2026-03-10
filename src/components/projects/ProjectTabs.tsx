@@ -27,9 +27,11 @@ import {
   Globe,
   Lock,
   Link2,
+  Zap,
 } from 'lucide-react'
 import { cn, formatDate } from '@/lib/utils'
 import { ConnectionsTab } from './ConnectionsTab'
+import { OptimizationActionsTab } from './OptimizationActionsTab'
 
 interface Report {
   id: string
@@ -259,6 +261,12 @@ export function ProjectTabs({
           label: 'Conexiones',
           icon: Link2,
           count: dataSources.length,
+        },
+        {
+          id: 'optimization',
+          label: 'Optimizacion',
+          icon: Zap,
+          count: 0,
         },
       ]
 
@@ -950,6 +958,14 @@ export function ProjectTabs({
             projectId={project.id}
             projectSlug={project.slug}
             dataSources={dataSources}
+          />
+        )}
+
+        {/* Tab de Optimizacion Google Ads (solo para admin/consultor) */}
+        {activeTab === 'optimization' && !isClient && (
+          <OptimizationActionsTab
+            projectId={project.id}
+            projectSlug={project.slug}
           />
         )}
       </div>
