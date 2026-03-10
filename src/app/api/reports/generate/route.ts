@@ -80,41 +80,48 @@ export async function POST(req: NextRequest) {
 
     const allData: Record<string, unknown>[] = []
 
+    console.log(`[Report Generate] dataSourceIds received:`, dataSourceIds)
+    console.log(`[Report Generate] periodFrom: ${report.periodFrom}, periodTo: ${report.periodTo}`)
+
     // 1. Obtener datos de data sources conectados (Analytics/Ads)
-    if (dataSourceIds.length > 0 && report.periodFrom && report.periodTo) {
-      const startDate = report.periodFrom.toISOString().split('T')[0]
-      const endDate = report.periodTo.toISOString().split('T')[0]
+    if (dataSourceIds.length > 0) {
+      if (!report.periodFrom || !report.periodTo) {
+        console.log(`[Report Generate] WARNING: Period not set, skipping data source extraction`)
+      } else {
+        const startDate = report.periodFrom.toISOString().split('T')[0]
+        const endDate = report.periodTo.toISOString().split('T')[0]
 
-      // Obtener los data sources seleccionados
-      const dataSources = await prisma.dataSource.findMany({
-        where: {
-          id: { in: dataSourceIds },
-          projectId: report.projectId,
-          status: 'CONNECTED',
-          isActive: true,
-        },
-      })
+        // Obtener los data sources seleccionados
+        const dataSources = await prisma.dataSource.findMany({
+          where: {
+            id: { in: dataSourceIds },
+            projectId: report.projectId,
+            status: 'CONNECTED',
+            isActive: true,
+          },
+        })
 
-      console.log(`[Report Generate] Fetching data from ${dataSources.length} data sources`)
+        console.log(`[Report Generate] Found ${dataSources.length} data sources matching criteria`)
 
-      for (const ds of dataSources) {
-        try {
-          if (ds.type === 'GOOGLE_ANALYTICS') {
-            console.log(`[Report Generate] Extracting Google Analytics data for ${ds.accountName}`)
-            const gaData: GoogleAnalyticsData = await extractGoogleAnalyticsData(ds.id, startDate, endDate)
-            const gaRows = analyticsDataToRows(gaData)
-            allData.push(...gaRows)
-            console.log(`[Report Generate] Got ${gaRows.length} rows from Google Analytics`)
-          } else if (ds.type === 'GOOGLE_ADS') {
-            console.log(`[Report Generate] Extracting Google Ads data for ${ds.accountName}`)
-            const adsData: GoogleAdsAnalysisData = await extractGoogleAdsData(ds.id, startDate, endDate)
-            const adsRows = adsDataToRows(adsData)
-            allData.push(...adsRows)
-            console.log(`[Report Generate] Got ${adsRows.length} rows from Google Ads`)
+        for (const ds of dataSources) {
+          try {
+            if (ds.type === 'GOOGLE_ANALYTICS') {
+              console.log(`[Report Generate] Extracting Google Analytics data for ${ds.accountName}`)
+              const gaData: GoogleAnalyticsData = await extractGoogleAnalyticsData(ds.id, startDate, endDate)
+              const gaRows = analyticsDataToRows(gaData)
+              allData.push(...gaRows)
+              console.log(`[Report Generate] Got ${gaRows.length} rows from Google Analytics`)
+            } else if (ds.type === 'GOOGLE_ADS') {
+              console.log(`[Report Generate] Extracting Google Ads data for ${ds.accountName}`)
+              const adsData: GoogleAdsAnalysisData = await extractGoogleAdsData(ds.id, startDate, endDate)
+              const adsRows = adsDataToRows(adsData)
+              allData.push(...adsRows)
+              console.log(`[Report Generate] Got ${adsRows.length} rows from Google Ads`)
+            }
+          } catch (err) {
+            console.error(`[Report Generate] Error extracting data from ${ds.type} ${ds.accountName}:`, err)
+            // Continue with other data sources
           }
-        } catch (err) {
-          console.error(`[Report Generate] Error extracting data from ${ds.type} ${ds.accountName}:`, err)
-          // Continue with other data sources
         }
       }
     }
