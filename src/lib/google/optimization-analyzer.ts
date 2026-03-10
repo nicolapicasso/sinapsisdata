@@ -63,7 +63,16 @@ function buildAnalysisPrompt(data: GoogleAdsAnalysisData, projectContext?: strin
     .slice(0, 20)
     .map(
       (c) =>
-        `- ${c.campaignName} (${c.status}): ${c.impressions.toLocaleString()} imp, ${c.clicks} clicks, $${c.cost.toFixed(2)} cost, ${c.conversions.toFixed(1)} conv, CTR: ${c.ctr.toFixed(2)}%, CPC: $${c.cpc.toFixed(2)}, CPA: $${c.costPerConversion.toFixed(2)}`
+        `- ${c.campaignName} [${c.status}]: ${c.impressions.toLocaleString()} imp, ${c.clicks} clicks, $${c.cost.toFixed(2)} cost, ${c.conversions.toFixed(1)} conv, CTR: ${c.ctr.toFixed(2)}%, CPC: $${c.cpc.toFixed(2)}, CPA: $${c.costPerConversion.toFixed(2)}`
+    )
+    .join('\n')
+
+  // Ad groups summary with status
+  const adGroupSummary = data.adGroups
+    .slice(0, 30)
+    .map(
+      (ag) =>
+        `- "${ag.adGroupName}" [${ag.status}] en "${ag.campaignName}": ${ag.impressions.toLocaleString()} imp, ${ag.clicks} clicks, $${ag.cost.toFixed(2)} cost, ${ag.conversions.toFixed(1)} conv`
     )
     .join('\n')
 
@@ -72,7 +81,7 @@ function buildAnalysisPrompt(data: GoogleAdsAnalysisData, projectContext?: strin
     .slice(0, 20)
     .map(
       (k) =>
-        `- "${k.keywordText}" (QS: ${k.qualityScore}): $${k.cost.toFixed(2)} cost, ${k.conversions.toFixed(1)} conv`
+        `- "${k.keywordText}" [${k.status}] (QS: ${k.qualityScore}): $${k.cost.toFixed(2)} cost, ${k.conversions.toFixed(1)} conv`
     )
     .join('\n')
 
@@ -99,7 +108,7 @@ function buildAnalysisPrompt(data: GoogleAdsAnalysisData, projectContext?: strin
     .slice(0, 20)
     .map(
       (k) =>
-        `- "${k.keywordText}" (${k.matchType}) in "${k.campaignName}": $${k.cost.toFixed(2)} cost, ${k.conversions.toFixed(1)} conv, CPA: $${k.costPerConversion.toFixed(2)}`
+        `- "${k.keywordText}" [${k.status}] (${k.matchType}) in "${k.campaignName}" > "${k.adGroupName}": $${k.cost.toFixed(2)} cost, ${k.conversions.toFixed(1)} conv, CPA: $${k.costPerConversion.toFixed(2)}`
     )
     .join('\n')
 
@@ -120,6 +129,9 @@ RESUMEN DE LA CUENTA:
 
 CAMPAÑAS (Top 20 por coste):
 ${campaignSummary || 'Sin datos de campañas'}
+
+GRUPOS DE ANUNCIOS (Top 30 por coste):
+${adGroupSummary || 'Sin datos de grupos de anuncios'}
 
 KEYWORDS CON QUALITY SCORE BAJO (<5) Y COSTE SIGNIFICATIVO:
 ${lowQualityKeywords || 'Ninguno encontrado'}
@@ -187,6 +199,20 @@ REGLAS IMPORTANTES:
 6. No sugieras más de 15 acciones para no abrumar
 7. Incluye siempre el campaignId y adGroupId en targetEntity cuando estén disponibles
 8. Para NEGATIVE_KEYWORD, especifica matchType (preferir EXACT para términos específicos)
+9. CRÍTICO - Respeta el estado actual de las entidades:
+   - NO sugieras PAUSE_CAMPAIGN para campañas con status "PAUSED" (ya están pausadas)
+   - NO sugieras ENABLE_CAMPAIGN para campañas con status "ENABLED" (ya están activas)
+   - NO sugieras PAUSE_KEYWORD para keywords con status "PAUSED"
+   - NO sugieras ENABLE_KEYWORD para keywords con status "ENABLED"
+   - Solo sugiere cambios de estado para entidades que realmente necesitan el cambio
+10. Solo analiza y sugiere acciones para entidades ACTIVAS:
+   - Ignora campañas con status "PAUSED" para sugerencias de optimización
+   - Ignora grupos de anuncios con status "PAUSED"
+   - Ignora keywords con status "PAUSED"
+11. HERENCIA DE ESTADO - Las entidades heredan el estado de sus padres:
+   - Si una campaña está PAUSED, todos sus grupos de anuncios y keywords están efectivamente pausados (no sugieras acciones sobre ellos)
+   - Si un grupo de anuncios está PAUSED, todas sus keywords están efectivamente pausadas (no sugieras acciones sobre ellas)
+   - Solo sugiere acciones sobre keywords que están en grupos de anuncios ENABLED dentro de campañas ENABLED
 
 Responde SOLO con el JSON, sin explicación adicional.`
 }
