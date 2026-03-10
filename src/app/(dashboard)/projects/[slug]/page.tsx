@@ -138,6 +138,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
       currency?: string
       timezone?: string
       isManager?: boolean
+      permissionLevel?: string
     } | null,
   }))
 
