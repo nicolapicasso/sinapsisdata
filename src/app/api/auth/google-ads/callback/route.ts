@@ -121,10 +121,11 @@ export async function GET(request: NextRequest) {
 
       console.log(`[Google Ads Callback] Connected account ${account.customerId}`)
 
+      const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000'
       return NextResponse.redirect(
         new URL(
           `/projects/${project.slug}?tab=connections&success=google_ads_connected`,
-          request.url
+          baseUrl
         )
       )
     }
@@ -147,10 +148,11 @@ export async function GET(request: NextRequest) {
       })
     ).toString('base64url')
 
+    const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000'
     return NextResponse.redirect(
       new URL(
         `/projects/${project.slug}/connections/select-account?type=google_ads&data=${accountsData}`,
-        request.url
+        baseUrl
       )
     )
   } catch (error) {

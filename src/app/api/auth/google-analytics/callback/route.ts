@@ -118,10 +118,11 @@ export async function GET(request: NextRequest) {
 
       console.log(`[Google Analytics Callback] Connected property ${property.propertyId}`)
 
+      const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000'
       return NextResponse.redirect(
         new URL(
           `/projects/${project.slug}?tab=connections&success=google_analytics_connected`,
-          request.url
+          baseUrl
         )
       )
     }
@@ -144,10 +145,11 @@ export async function GET(request: NextRequest) {
       })
     ).toString('base64url')
 
+    const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000'
     return NextResponse.redirect(
       new URL(
         `/projects/${project.slug}/connections/select-account?type=google_analytics&data=${propertiesData}`,
-        request.url
+        baseUrl
       )
     )
   } catch (error) {
