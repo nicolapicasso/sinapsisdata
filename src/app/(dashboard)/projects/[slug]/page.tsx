@@ -129,6 +129,16 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
     } | null,
   }
 
+  // Cast dataSources metadata to proper type
+  const dataSourcesTyped = project.dataSources.map((ds) => ({
+    ...ds,
+    metadata: ds.metadata as {
+      currency?: string
+      timezone?: string
+      isManager?: boolean
+    } | null,
+  }))
+
   return (
     <div>
       <ProjectHeader project={projectForHeader} canEdit={canEdit} />
@@ -138,7 +148,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
         questions={project.questions}
         proposals={project.proposals}
         approvedProposals={approvedProposals}
-        dataSources={project.dataSources}
+        dataSources={dataSourcesTyped}
         canEdit={canEdit}
         userRole={effectiveRole}
       />
