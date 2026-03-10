@@ -15,6 +15,7 @@ export interface CampaignData {
   campaignName: string
   status: string
   budget: number
+  budgetId: string
   budgetType: string
   impressions: number
   clicks: number
@@ -191,6 +192,7 @@ export async function extractCampaigns(
       campaign.id,
       campaign.name,
       campaign.status,
+      campaign.campaign_budget,
       campaign_budget.amount_micros,
       campaign_budget.type,
       metrics.impressions,
@@ -209,6 +211,7 @@ export async function extractCampaigns(
       id: string
       name: string
       status: string
+      campaignBudget: string // resource name: customers/{customer_id}/campaignBudgets/{budget_id}
     }
     campaignBudget: {
       amountMicros: string
@@ -236,12 +239,16 @@ export async function extractCampaigns(
     const cost = parseInt(row.metrics.costMicros) / 1_000_000 || 0
     const conversions = parseFloat(row.metrics.conversions) || 0
     const conversionValue = parseFloat(row.metrics.conversionsValue) || 0
+    // Extract budget ID from resource name: customers/{customer_id}/campaignBudgets/{budget_id}
+    const budgetResourceName = row.campaign.campaignBudget || ''
+    const budgetId = budgetResourceName.split('/').pop() || ''
 
     return {
       campaignId: row.campaign.id,
       campaignName: row.campaign.name,
       status: row.campaign.status,
       budget: parseInt(row.campaignBudget?.amountMicros || '0') / 1_000_000,
+      budgetId,
       budgetType: row.campaignBudget?.type || 'UNKNOWN',
       impressions,
       clicks,

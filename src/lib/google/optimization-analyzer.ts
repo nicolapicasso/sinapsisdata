@@ -34,6 +34,7 @@ export interface OptimizationSuggestion {
     keywordText?: string
     searchTerm?: string
     placement?: string
+    budgetId?: string
   }
   payload: Record<string, unknown>
   metrics: {
@@ -63,7 +64,7 @@ function buildAnalysisPrompt(data: GoogleAdsAnalysisData, projectContext?: strin
     .slice(0, 20)
     .map(
       (c) =>
-        `- ${c.campaignName} [${c.status}]: ${c.impressions.toLocaleString()} imp, ${c.clicks} clicks, $${c.cost.toFixed(2)} cost, ${c.conversions.toFixed(1)} conv, CTR: ${c.ctr.toFixed(2)}%, CPC: $${c.cpc.toFixed(2)}, CPA: $${c.costPerConversion.toFixed(2)}`
+        `- ${c.campaignName} [${c.status}]: ${c.impressions.toLocaleString()} imp, ${c.clicks} clicks, ${c.cost.toFixed(2)}€ cost, ${c.conversions.toFixed(1)} conv, CTR: ${c.ctr.toFixed(2)}%, CPC: ${c.cpc.toFixed(2)}€, CPA: ${c.costPerConversion.toFixed(2)}€`
     )
     .join('\n')
 
@@ -72,7 +73,7 @@ function buildAnalysisPrompt(data: GoogleAdsAnalysisData, projectContext?: strin
     .slice(0, 30)
     .map(
       (ag) =>
-        `- "${ag.adGroupName}" [${ag.status}] en "${ag.campaignName}": ${ag.impressions.toLocaleString()} imp, ${ag.clicks} clicks, $${ag.cost.toFixed(2)} cost, ${ag.conversions.toFixed(1)} conv`
+        `- "${ag.adGroupName}" [${ag.status}] en "${ag.campaignName}": ${ag.impressions.toLocaleString()} imp, ${ag.clicks} clicks, ${ag.cost.toFixed(2)}€ cost, ${ag.conversions.toFixed(1)} conv`
     )
     .join('\n')
 
@@ -81,7 +82,7 @@ function buildAnalysisPrompt(data: GoogleAdsAnalysisData, projectContext?: strin
     .slice(0, 20)
     .map(
       (k) =>
-        `- "${k.keywordText}" [${k.status}] (QS: ${k.qualityScore}): $${k.cost.toFixed(2)} cost, ${k.conversions.toFixed(1)} conv`
+        `- "${k.keywordText}" [${k.status}] (QS: ${k.qualityScore}): ${k.cost.toFixed(2)}€ cost, ${k.conversions.toFixed(1)} conv`
     )
     .join('\n')
 
@@ -91,7 +92,7 @@ function buildAnalysisPrompt(data: GoogleAdsAnalysisData, projectContext?: strin
     .slice(0, 30)
     .map(
       (st) =>
-        `- "${st.searchTerm}" in "${st.campaignName}" > "${st.adGroupName}": $${st.cost.toFixed(2)} cost, ${st.clicks} clicks, 0 conversions`
+        `- "${st.searchTerm}" in "${st.campaignName}" > "${st.adGroupName}": ${st.cost.toFixed(2)}€ cost, ${st.clicks} clicks, 0 conversions`
     )
     .join('\n')
 
@@ -99,7 +100,7 @@ function buildAnalysisPrompt(data: GoogleAdsAnalysisData, projectContext?: strin
     .filter((p) => p.conversions === 0 && p.cost > 5)
     .sort((a, b) => b.cost - a.cost)
     .slice(0, 20)
-    .map((p) => `- ${p.displayName || p.placement}: $${p.cost.toFixed(2)} cost, ${p.clicks} clicks, 0 conversions`)
+    .map((p) => `- ${p.displayName || p.placement}: ${p.cost.toFixed(2)}€ cost, ${p.clicks} clicks, 0 conversions`)
     .join('\n')
 
   const highCostKeywordsLowConversions = data.keywords
@@ -108,7 +109,7 @@ function buildAnalysisPrompt(data: GoogleAdsAnalysisData, projectContext?: strin
     .slice(0, 20)
     .map(
       (k) =>
-        `- "${k.keywordText}" [${k.status}] (${k.matchType}) in "${k.campaignName}" > "${k.adGroupName}": $${k.cost.toFixed(2)} cost, ${k.conversions.toFixed(1)} conv, CPA: $${k.costPerConversion.toFixed(2)}`
+        `- "${k.keywordText}" [${k.status}] (${k.matchType}) in "${k.campaignName}" > "${k.adGroupName}": ${k.cost.toFixed(2)}€ cost, ${k.conversions.toFixed(1)} conv, CPA: ${k.costPerConversion.toFixed(2)}€`
     )
     .join('\n')
 
@@ -117,14 +118,14 @@ function buildAnalysisPrompt(data: GoogleAdsAnalysisData, projectContext?: strin
 ${projectContext ? `CONTEXTO DEL PROYECTO:\n${projectContext}\n\n` : ''}
 
 RESUMEN DE LA CUENTA:
-- Coste total: $${data.summary.totalCost.toFixed(2)}
+- Coste total: ${data.summary.totalCost.toFixed(2)}€
 - Impresiones totales: ${data.summary.totalImpressions.toLocaleString()}
 - Clics totales: ${data.summary.totalClicks.toLocaleString()}
 - Conversiones totales: ${data.summary.totalConversions.toFixed(1)}
-- Valor de conversiones: $${data.summary.totalConversionValue.toFixed(2)}
+- Valor de conversiones: ${data.summary.totalConversionValue.toFixed(2)}€
 - CTR promedio: ${data.summary.averageCtr.toFixed(2)}%
-- CPC promedio: $${data.summary.averageCpc.toFixed(2)}
-- CPA promedio: $${data.summary.averageCostPerConversion.toFixed(2)}
+- CPC promedio: ${data.summary.averageCpc.toFixed(2)}€
+- CPA promedio: ${data.summary.averageCostPerConversion.toFixed(2)}€
 - ROAS: ${data.summary.roas.toFixed(2)}x
 
 CAMPAÑAS (Top 20 por coste):
@@ -325,6 +326,28 @@ export async function analyzeGoogleAdsData(
       }
     }
 
+    // For campaign-related actions, enrich with budgetId and calculate actual amounts
+    if (
+      ['UPDATE_CAMPAIGN_BUDGET', 'PAUSE_CAMPAIGN', 'ENABLE_CAMPAIGN'].includes(suggestion.type) &&
+      suggestion.targetEntity.campaignName
+    ) {
+      const matchingCampaign = data.campaigns.find(
+        (c) => c.campaignName === suggestion.targetEntity.campaignName
+      )
+      if (matchingCampaign) {
+        suggestion.targetEntity.campaignId = matchingCampaign.campaignId
+        suggestion.targetEntity.budgetId = matchingCampaign.budgetId
+
+        // For UPDATE_CAMPAIGN_BUDGET, calculate the new amount from percentage reduction
+        if (suggestion.type === 'UPDATE_CAMPAIGN_BUDGET' && suggestion.payload.budgetReduction) {
+          const reductionPercent = suggestion.payload.budgetReduction as number
+          const currentBudgetMicros = matchingCampaign.budget * 1_000_000
+          const newBudgetMicros = Math.round(currentBudgetMicros * (1 - reductionPercent / 100))
+          suggestion.payload.amountMicros = newBudgetMicros
+        }
+      }
+    }
+
     return suggestion
   })
 
@@ -377,7 +400,7 @@ export function generateAnalysisReport(result: AnalysisResult): string {
 
     if (s.metrics && Object.keys(s.metrics).length > 0) {
       report += `**Métricas actuales:**\n`
-      if (s.metrics.cost) report += `- Coste: $${s.metrics.cost.toFixed(2)}\n`
+      if (s.metrics.cost) report += `- Coste: ${s.metrics.cost.toFixed(2)}€\n`
       if (s.metrics.conversions !== undefined) report += `- Conversiones: ${s.metrics.conversions}\n`
       if (s.metrics.ctr) report += `- CTR: ${s.metrics.ctr.toFixed(2)}%\n`
       report += '\n'

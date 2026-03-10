@@ -414,7 +414,7 @@ export default function OptimizePage() {
                 <div>
                   <p className="text-sm text-gray-500">Coste total</p>
                   <p className="text-2xl font-bold text-dark">
-                    ${analysisData.summary.totalCost.toFixed(2)}
+                    {analysisData.summary.totalCost.toFixed(2)}€
                   </p>
                 </div>
               </div>
@@ -550,7 +550,7 @@ export default function OptimizePage() {
                       {suggestion.metrics && Object.keys(suggestion.metrics).length > 0 && (
                         <div className="flex gap-4 mt-2 text-xs text-gray-500">
                           {suggestion.metrics.cost !== undefined && (
-                            <span>Coste: ${suggestion.metrics.cost.toFixed(2)}</span>
+                            <span>Coste: {suggestion.metrics.cost.toFixed(2)}€</span>
                           )}
                           {suggestion.metrics.conversions !== undefined && (
                             <span>Conv: {suggestion.metrics.conversions}</span>

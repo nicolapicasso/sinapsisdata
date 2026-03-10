@@ -386,7 +386,7 @@ export function OptimizationActionsTab({ projectId, projectSlug }: OptimizationA
                     {action.metrics && Object.keys(action.metrics).length > 0 && (
                       <div className="flex gap-4 mt-2 text-xs text-gray-500">
                         {action.metrics.cost !== undefined && (
-                          <span>Coste: ${action.metrics.cost.toFixed(2)}</span>
+                          <span>Coste: {action.metrics.cost.toFixed(2)}€</span>
                         )}
                         {action.metrics.conversions !== undefined && (
                           <span>Conv: {action.metrics.conversions}</span>
