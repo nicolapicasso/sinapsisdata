@@ -249,6 +249,17 @@ function buildAnalysisPrompt(data: GoogleAdsAnalysisData, projectContext?: strin
     )
     .join('\n')
 
+  // Existing exclusions (to avoid duplicate suggestions)
+  const existingNegatives = data.existingNegativeKeywords
+    .slice(0, 100)
+    .map((n) => `- "${n.keyword}" (${n.matchType}) - ${n.level}`)
+    .join('\n')
+
+  const existingExcludedPlacements = data.existingExcludedPlacements
+    .slice(0, 50)
+    .map((p) => `- ${p.placement}`)
+    .join('\n')
+
   return `Eres un experto en optimización de Google Ads. Analiza los siguientes datos de la cuenta "${data.accountName}" (ID: ${data.accountId}) para el período ${data.dateRange.startDate} a ${data.dateRange.endDate}.
 
 ${projectContext ? `CONTEXTO DEL PROYECTO:\n${projectContext}\n\n` : ''}
@@ -296,6 +307,12 @@ ${ageRangePerformance || 'Sin datos demográficos'}
 
 RENDIMIENTO POR GÉNERO:
 ${genderPerformance || 'Sin datos demográficos'}
+
+KEYWORDS NEGATIVAS YA APLICADAS (NO sugerir duplicados):
+${existingNegatives || 'Ninguna encontrada'}
+
+PLACEMENTS YA EXCLUIDOS (NO sugerir duplicados):
+${existingExcludedPlacements || 'Ninguno encontrado'}
 
 Genera un análisis JSON con la siguiente estructura:
 {
@@ -372,17 +389,22 @@ REGLAS IMPORTANTES:
 6. No sugieras más de 15 acciones para no abrumar
 7. Incluye siempre el campaignId y adGroupId en targetEntity cuando estén disponibles
 8. Para NEGATIVE_KEYWORD, especifica matchType (preferir EXACT para términos específicos)
-9. CRÍTICO - Respeta el estado actual de las entidades:
+9. CRÍTICO - NO SUGIERAS DUPLICADOS:
+   - NO sugieras añadir keywords negativas que ya están en la lista "KEYWORDS NEGATIVAS YA APLICADAS"
+   - NO sugieras excluir placements que ya están en la lista "PLACEMENTS YA EXCLUIDOS"
+   - Antes de sugerir NEGATIVE_KEYWORD, verifica que no esté ya aplicada
+   - Antes de sugerir EXCLUDE_PLACEMENT, verifica que no esté ya excluido
+10. CRÍTICO - Respeta el estado actual de las entidades:
    - NO sugieras PAUSE_CAMPAIGN para campañas con status "PAUSED" (ya están pausadas)
    - NO sugieras ENABLE_CAMPAIGN para campañas con status "ENABLED" (ya están activas)
    - NO sugieras PAUSE_KEYWORD para keywords con status "PAUSED"
    - NO sugieras ENABLE_KEYWORD para keywords con status "ENABLED"
    - Solo sugiere cambios de estado para entidades que realmente necesitan el cambio
-10. Solo analiza y sugiere acciones para entidades ACTIVAS:
+11. Solo analiza y sugiere acciones para entidades ACTIVAS:
    - Ignora campañas con status "PAUSED" para sugerencias de optimización
    - Ignora grupos de anuncios con status "PAUSED"
    - Ignora keywords con status "PAUSED"
-11. HERENCIA DE ESTADO - Las entidades heredan el estado de sus padres:
+12. HERENCIA DE ESTADO - Las entidades heredan el estado de sus padres:
    - Si una campaña está PAUSED, todos sus grupos de anuncios y keywords están efectivamente pausados (no sugieras acciones sobre ellos)
    - Si un grupo de anuncios está PAUSED, todas sus keywords están efectivamente pausadas (no sugieras acciones sobre ellas)
    - Solo sugiere acciones sobre keywords que están en grupos de anuncios ENABLED dentro de campañas ENABLED
