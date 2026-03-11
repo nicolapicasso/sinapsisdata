@@ -13,6 +13,7 @@ import { encryptTokens } from '@/lib/encryption'
 export interface CampaignData {
   campaignId: string
   campaignName: string
+  campaignType: string // SEARCH, DISPLAY, PERFORMANCE_MAX, VIDEO, SHOPPING, etc.
   status: string
   budget: number
   budgetId: string
@@ -287,6 +288,7 @@ export async function extractCampaigns(
       campaign.id,
       campaign.name,
       campaign.status,
+      campaign.advertising_channel_type,
       campaign.campaign_budget,
       campaign_budget.amount_micros,
       campaign_budget.type,
@@ -306,6 +308,7 @@ export async function extractCampaigns(
       id: string
       name: string
       status: string
+      advertisingChannelType: string // SEARCH, DISPLAY, PERFORMANCE_MAX, VIDEO, SHOPPING, etc.
       campaignBudget: string // resource name: customers/{customer_id}/campaignBudgets/{budget_id}
     }
     campaignBudget: {
@@ -341,6 +344,7 @@ export async function extractCampaigns(
     return {
       campaignId: row.campaign.id,
       campaignName: row.campaign.name,
+      campaignType: row.campaign.advertisingChannelType || 'UNKNOWN',
       status: row.campaign.status,
       budget: parseInt(row.campaignBudget?.amountMicros || '0') / 1_000_000,
       budgetId,

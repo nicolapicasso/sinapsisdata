@@ -152,9 +152,15 @@ function buildAnalysisPrompt(data: GoogleAdsAnalysisData, projectContext?: strin
     .slice(0, 20)
     .map(
       (c) =>
-        `- ${c.campaignName} [${c.status}]: ${c.impressions.toLocaleString()} imp, ${c.clicks} clicks, ${c.cost.toFixed(2)}€ cost, ${c.conversions.toFixed(1)} conv, CTR: ${c.ctr.toFixed(2)}%, CPC: ${c.cpc.toFixed(2)}€, CPA: ${c.costPerConversion.toFixed(2)}€`
+        `- ${c.campaignName} [${c.status}] (${c.campaignType}): ${c.impressions.toLocaleString()} imp, ${c.clicks} clicks, ${c.cost.toFixed(2)}€ cost, ${c.conversions.toFixed(1)} conv, CTR: ${c.ctr.toFixed(2)}%, CPC: ${c.cpc.toFixed(2)}€, CPA: ${c.costPerConversion.toFixed(2)}€`
     )
     .join('\n')
+
+  // Identify PMAX campaigns to warn Claude about them
+  const pmaxCampaigns = data.campaigns
+    .filter((c) => c.campaignType === 'PERFORMANCE_MAX')
+    .map((c) => c.campaignName)
+    .join(', ')
 
   // Ad groups summary with status
   const adGroupSummary = data.adGroups
@@ -277,6 +283,10 @@ RESUMEN DE LA CUENTA:
 
 CAMPAÑAS (Top 20 por coste):
 ${campaignSummary || 'Sin datos de campañas'}
+
+CAMPAÑAS PERFORMANCE MAX (PMAX):
+${pmaxCampaigns || 'Ninguna'}
+IMPORTANTE: Las campañas PMAX tienen restricciones especiales (ver reglas abajo)
 
 GRUPOS DE ANUNCIOS (Top 30 por coste):
 ${adGroupSummary || 'Sin datos de grupos de anuncios'}
@@ -408,6 +418,16 @@ REGLAS IMPORTANTES:
    - Si una campaña está PAUSED, todos sus grupos de anuncios y keywords están efectivamente pausados (no sugieras acciones sobre ellos)
    - Si un grupo de anuncios está PAUSED, todas sus keywords están efectivamente pausadas (no sugieras acciones sobre ellas)
    - Solo sugiere acciones sobre keywords que están en grupos de anuncios ENABLED dentro de campañas ENABLED
+13. CRÍTICO - RESTRICCIONES DE CAMPAÑAS PERFORMANCE MAX (PMAX):
+   Las campañas PERFORMANCE_MAX usan pujas automáticas de Google y NO soportan ajustes manuales. Para campañas PMAX, NUNCA sugieras:
+   - UPDATE_DEVICE_BID_MODIFIER (ajuste de puja por dispositivo)
+   - UPDATE_LOCATION_BID_MODIFIER (ajuste de puja por ubicación)
+   - ADD_AD_SCHEDULE (programación horaria)
+   - EXCLUDE_AGE_RANGE (exclusión de edad)
+   - EXCLUDE_GENDER (exclusión de género)
+   - UPDATE_KEYWORD_BID (no tienen keywords tradicionales)
+   - PAUSE_KEYWORD / ENABLE_KEYWORD (no tienen keywords tradicionales)
+   Para campañas PMAX solo puedes sugerir: UPDATE_CAMPAIGN_BUDGET, PAUSE_CAMPAIGN, ENABLE_CAMPAIGN, o EXCLUDE_PLACEMENT (a nivel de cuenta)
 
 Responde SOLO con el JSON, sin explicación adicional.`
 }
@@ -453,6 +473,47 @@ export async function analyzeGoogleAdsData(
     console.error('[Optimizer] Failed to parse Claude response:', textContent.text)
     throw new Error('Failed to parse optimization analysis')
   }
+
+  // Actions that are NOT supported for PERFORMANCE_MAX campaigns
+  const pmaxIncompatibleActions = [
+    'UPDATE_DEVICE_BID_MODIFIER',
+    'UPDATE_LOCATION_BID_MODIFIER',
+    'ADD_AD_SCHEDULE',
+    'EXCLUDE_AGE_RANGE',
+    'EXCLUDE_GENDER',
+    'UPDATE_KEYWORD_BID',
+    'PAUSE_KEYWORD',
+    'ENABLE_KEYWORD',
+  ]
+
+  // Get set of PMAX campaign IDs for quick lookup
+  const pmaxCampaignIds = new Set(
+    data.campaigns
+      .filter((c) => c.campaignType === 'PERFORMANCE_MAX')
+      .map((c) => c.campaignId)
+  )
+
+  // Filter out incompatible actions for PMAX campaigns
+  result.suggestions = result.suggestions.filter((suggestion) => {
+    if (pmaxIncompatibleActions.includes(suggestion.type)) {
+      // Check if the suggestion targets a PMAX campaign
+      const campaignId = suggestion.targetEntity.campaignId
+      if (campaignId && pmaxCampaignIds.has(campaignId)) {
+        console.log(`[Optimizer] Filtering out ${suggestion.type} for PMAX campaign ${suggestion.targetEntity.campaignName}`)
+        return false
+      }
+      // Also check by campaign name if no ID yet
+      const campaignName = suggestion.targetEntity.campaignName
+      if (campaignName) {
+        const campaign = data.campaigns.find((c) => c.campaignName === campaignName)
+        if (campaign && campaign.campaignType === 'PERFORMANCE_MAX') {
+          console.log(`[Optimizer] Filtering out ${suggestion.type} for PMAX campaign ${campaignName}`)
+          return false
+        }
+      }
+    }
+    return true
+  })
 
   // Validate and enhance suggestions with actual IDs from data
   result.suggestions = result.suggestions.map((suggestion) => {
