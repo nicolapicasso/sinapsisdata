@@ -92,6 +92,92 @@ export interface PlacementData {
   cpc: number
 }
 
+export interface DeviceData {
+  device: 'MOBILE' | 'DESKTOP' | 'TABLET' | 'OTHER'
+  campaignId: string
+  campaignName: string
+  impressions: number
+  clicks: number
+  cost: number
+  conversions: number
+  ctr: number
+  cpc: number
+  costPerConversion: number
+  conversionRate: number
+}
+
+export interface LocationData {
+  locationId: string
+  locationName: string
+  countryCode: string
+  locationType: string
+  campaignId: string
+  campaignName: string
+  impressions: number
+  clicks: number
+  cost: number
+  conversions: number
+  ctr: number
+  cpc: number
+  costPerConversion: number
+}
+
+export interface AdData {
+  adId: string
+  adGroupId: string
+  adGroupName: string
+  campaignId: string
+  campaignName: string
+  adType: string
+  status: string
+  headlines: string[]
+  descriptions: string[]
+  impressions: number
+  clicks: number
+  cost: number
+  conversions: number
+  ctr: number
+  cpc: number
+  costPerConversion: number
+}
+
+export interface HourData {
+  hour: number
+  dayOfWeek: number // 0 = Monday, 6 = Sunday
+  campaignId: string
+  campaignName: string
+  impressions: number
+  clicks: number
+  cost: number
+  conversions: number
+  ctr: number
+  conversionRate: number
+}
+
+export interface AgeRangeData {
+  ageRange: string
+  campaignId: string
+  campaignName: string
+  impressions: number
+  clicks: number
+  cost: number
+  conversions: number
+  ctr: number
+  costPerConversion: number
+}
+
+export interface GenderData {
+  gender: string
+  campaignId: string
+  campaignName: string
+  impressions: number
+  clicks: number
+  cost: number
+  conversions: number
+  ctr: number
+  costPerConversion: number
+}
+
 export interface GoogleAdsAnalysisData {
   accountId: string
   accountName: string
@@ -101,6 +187,12 @@ export interface GoogleAdsAnalysisData {
   keywords: KeywordData[]
   searchTerms: SearchTermData[]
   placements: PlacementData[]
+  devices: DeviceData[]
+  locations: LocationData[]
+  ads: AdData[]
+  hourlyPerformance: HourData[]
+  ageRanges: AgeRangeData[]
+  genders: GenderData[]
   summary: {
     totalCost: number
     totalImpressions: number
@@ -604,6 +696,492 @@ export async function extractPlacements(
 }
 
 /**
+ * Extract device performance data
+ */
+export async function extractDevicePerformance(
+  accessToken: string,
+  customerId: string,
+  startDate: string,
+  endDate: string,
+  loginCustomerId?: string
+): Promise<DeviceData[]> {
+  const query = `
+    SELECT
+      segments.device,
+      campaign.id,
+      campaign.name,
+      metrics.impressions,
+      metrics.clicks,
+      metrics.cost_micros,
+      metrics.conversions
+    FROM campaign
+    WHERE segments.date BETWEEN '${startDate}' AND '${endDate}'
+      AND campaign.status = 'ENABLED'
+    ORDER BY metrics.cost_micros DESC
+  `
+
+  interface DeviceRow {
+    segments: {
+      device: string
+    }
+    campaign: {
+      id: string
+      name: string
+    }
+    metrics: {
+      impressions: string
+      clicks: string
+      costMicros: string
+      conversions: string
+    }
+  }
+
+  try {
+    const results = await executeGaqlQuery<DeviceRow>(
+      accessToken,
+      customerId,
+      query,
+      loginCustomerId
+    )
+
+    return results.map((row) => {
+      const impressions = parseInt(row.metrics.impressions) || 0
+      const clicks = parseInt(row.metrics.clicks) || 0
+      const cost = parseInt(row.metrics.costMicros) / 1_000_000 || 0
+      const conversions = parseFloat(row.metrics.conversions) || 0
+
+      return {
+        device: row.segments.device as DeviceData['device'],
+        campaignId: row.campaign.id,
+        campaignName: row.campaign.name,
+        impressions,
+        clicks,
+        cost,
+        conversions,
+        ctr: impressions > 0 ? (clicks / impressions) * 100 : 0,
+        cpc: clicks > 0 ? cost / clicks : 0,
+        costPerConversion: conversions > 0 ? cost / conversions : 0,
+        conversionRate: clicks > 0 ? (conversions / clicks) * 100 : 0,
+      }
+    })
+  } catch {
+    console.log('[Google Ads] No device data available')
+    return []
+  }
+}
+
+/**
+ * Extract location performance data
+ */
+export async function extractLocationPerformance(
+  accessToken: string,
+  customerId: string,
+  startDate: string,
+  endDate: string,
+  loginCustomerId?: string
+): Promise<LocationData[]> {
+  const query = `
+    SELECT
+      geographic_view.country_criterion_id,
+      geographic_view.location_type,
+      campaign.id,
+      campaign.name,
+      metrics.impressions,
+      metrics.clicks,
+      metrics.cost_micros,
+      metrics.conversions
+    FROM geographic_view
+    WHERE segments.date BETWEEN '${startDate}' AND '${endDate}'
+    ORDER BY metrics.cost_micros DESC
+    LIMIT 200
+  `
+
+  interface LocationRow {
+    geographicView: {
+      countryCriterionId: string
+      locationType: string
+    }
+    campaign: {
+      id: string
+      name: string
+    }
+    metrics: {
+      impressions: string
+      clicks: string
+      costMicros: string
+      conversions: string
+    }
+  }
+
+  try {
+    const results = await executeGaqlQuery<LocationRow>(
+      accessToken,
+      customerId,
+      query,
+      loginCustomerId
+    )
+
+    return results.map((row) => {
+      const impressions = parseInt(row.metrics.impressions) || 0
+      const clicks = parseInt(row.metrics.clicks) || 0
+      const cost = parseInt(row.metrics.costMicros) / 1_000_000 || 0
+      const conversions = parseFloat(row.metrics.conversions) || 0
+
+      return {
+        locationId: row.geographicView.countryCriterionId,
+        locationName: row.geographicView.countryCriterionId, // Will be resolved later if needed
+        countryCode: '',
+        locationType: row.geographicView.locationType,
+        campaignId: row.campaign.id,
+        campaignName: row.campaign.name,
+        impressions,
+        clicks,
+        cost,
+        conversions,
+        ctr: impressions > 0 ? (clicks / impressions) * 100 : 0,
+        cpc: clicks > 0 ? cost / clicks : 0,
+        costPerConversion: conversions > 0 ? cost / conversions : 0,
+      }
+    })
+  } catch {
+    console.log('[Google Ads] No location data available')
+    return []
+  }
+}
+
+/**
+ * Extract ad performance data
+ */
+export async function extractAdPerformance(
+  accessToken: string,
+  customerId: string,
+  startDate: string,
+  endDate: string,
+  loginCustomerId?: string
+): Promise<AdData[]> {
+  const query = `
+    SELECT
+      ad_group_ad.ad.id,
+      ad_group_ad.ad.type,
+      ad_group_ad.status,
+      ad_group_ad.ad.responsive_search_ad.headlines,
+      ad_group_ad.ad.responsive_search_ad.descriptions,
+      ad_group.id,
+      ad_group.name,
+      campaign.id,
+      campaign.name,
+      metrics.impressions,
+      metrics.clicks,
+      metrics.cost_micros,
+      metrics.conversions
+    FROM ad_group_ad
+    WHERE segments.date BETWEEN '${startDate}' AND '${endDate}'
+      AND ad_group_ad.status != 'REMOVED'
+    ORDER BY metrics.cost_micros DESC
+    LIMIT 200
+  `
+
+  interface AdRow {
+    adGroupAd: {
+      ad: {
+        id: string
+        type: string
+        responsiveSearchAd?: {
+          headlines?: Array<{ text: string }>
+          descriptions?: Array<{ text: string }>
+        }
+      }
+      status: string
+    }
+    adGroup: {
+      id: string
+      name: string
+    }
+    campaign: {
+      id: string
+      name: string
+    }
+    metrics: {
+      impressions: string
+      clicks: string
+      costMicros: string
+      conversions: string
+    }
+  }
+
+  try {
+    const results = await executeGaqlQuery<AdRow>(
+      accessToken,
+      customerId,
+      query,
+      loginCustomerId
+    )
+
+    return results.map((row) => {
+      const impressions = parseInt(row.metrics.impressions) || 0
+      const clicks = parseInt(row.metrics.clicks) || 0
+      const cost = parseInt(row.metrics.costMicros) / 1_000_000 || 0
+      const conversions = parseFloat(row.metrics.conversions) || 0
+
+      return {
+        adId: row.adGroupAd.ad.id,
+        adType: row.adGroupAd.ad.type,
+        status: row.adGroupAd.status,
+        headlines: row.adGroupAd.ad.responsiveSearchAd?.headlines?.map((h) => h.text) || [],
+        descriptions: row.adGroupAd.ad.responsiveSearchAd?.descriptions?.map((d) => d.text) || [],
+        adGroupId: row.adGroup.id,
+        adGroupName: row.adGroup.name,
+        campaignId: row.campaign.id,
+        campaignName: row.campaign.name,
+        impressions,
+        clicks,
+        cost,
+        conversions,
+        ctr: impressions > 0 ? (clicks / impressions) * 100 : 0,
+        cpc: clicks > 0 ? cost / clicks : 0,
+        costPerConversion: conversions > 0 ? cost / conversions : 0,
+      }
+    })
+  } catch {
+    console.log('[Google Ads] No ad data available')
+    return []
+  }
+}
+
+/**
+ * Extract hourly performance data
+ */
+export async function extractHourlyPerformance(
+  accessToken: string,
+  customerId: string,
+  startDate: string,
+  endDate: string,
+  loginCustomerId?: string
+): Promise<HourData[]> {
+  const query = `
+    SELECT
+      segments.hour,
+      segments.day_of_week,
+      campaign.id,
+      campaign.name,
+      metrics.impressions,
+      metrics.clicks,
+      metrics.cost_micros,
+      metrics.conversions
+    FROM campaign
+    WHERE segments.date BETWEEN '${startDate}' AND '${endDate}'
+      AND campaign.status = 'ENABLED'
+  `
+
+  interface HourRow {
+    segments: {
+      hour: number
+      dayOfWeek: string
+    }
+    campaign: {
+      id: string
+      name: string
+    }
+    metrics: {
+      impressions: string
+      clicks: string
+      costMicros: string
+      conversions: string
+    }
+  }
+
+  const dayOfWeekMap: Record<string, number> = {
+    MONDAY: 0,
+    TUESDAY: 1,
+    WEDNESDAY: 2,
+    THURSDAY: 3,
+    FRIDAY: 4,
+    SATURDAY: 5,
+    SUNDAY: 6,
+  }
+
+  try {
+    const results = await executeGaqlQuery<HourRow>(
+      accessToken,
+      customerId,
+      query,
+      loginCustomerId
+    )
+
+    return results.map((row) => {
+      const impressions = parseInt(row.metrics.impressions) || 0
+      const clicks = parseInt(row.metrics.clicks) || 0
+      const cost = parseInt(row.metrics.costMicros) / 1_000_000 || 0
+      const conversions = parseFloat(row.metrics.conversions) || 0
+
+      return {
+        hour: row.segments.hour,
+        dayOfWeek: dayOfWeekMap[row.segments.dayOfWeek] ?? 0,
+        campaignId: row.campaign.id,
+        campaignName: row.campaign.name,
+        impressions,
+        clicks,
+        cost,
+        conversions,
+        ctr: impressions > 0 ? (clicks / impressions) * 100 : 0,
+        conversionRate: clicks > 0 ? (conversions / clicks) * 100 : 0,
+      }
+    })
+  } catch {
+    console.log('[Google Ads] No hourly data available')
+    return []
+  }
+}
+
+/**
+ * Extract age range performance data
+ */
+export async function extractAgeRangePerformance(
+  accessToken: string,
+  customerId: string,
+  startDate: string,
+  endDate: string,
+  loginCustomerId?: string
+): Promise<AgeRangeData[]> {
+  const query = `
+    SELECT
+      ad_group_criterion.age_range.type,
+      campaign.id,
+      campaign.name,
+      metrics.impressions,
+      metrics.clicks,
+      metrics.cost_micros,
+      metrics.conversions
+    FROM age_range_view
+    WHERE segments.date BETWEEN '${startDate}' AND '${endDate}'
+    ORDER BY metrics.cost_micros DESC
+  `
+
+  interface AgeRangeRow {
+    adGroupCriterion: {
+      ageRange: {
+        type: string
+      }
+    }
+    campaign: {
+      id: string
+      name: string
+    }
+    metrics: {
+      impressions: string
+      clicks: string
+      costMicros: string
+      conversions: string
+    }
+  }
+
+  try {
+    const results = await executeGaqlQuery<AgeRangeRow>(
+      accessToken,
+      customerId,
+      query,
+      loginCustomerId
+    )
+
+    return results.map((row) => {
+      const impressions = parseInt(row.metrics.impressions) || 0
+      const clicks = parseInt(row.metrics.clicks) || 0
+      const cost = parseInt(row.metrics.costMicros) / 1_000_000 || 0
+      const conversions = parseFloat(row.metrics.conversions) || 0
+
+      return {
+        ageRange: row.adGroupCriterion.ageRange.type,
+        campaignId: row.campaign.id,
+        campaignName: row.campaign.name,
+        impressions,
+        clicks,
+        cost,
+        conversions,
+        ctr: impressions > 0 ? (clicks / impressions) * 100 : 0,
+        costPerConversion: conversions > 0 ? cost / conversions : 0,
+      }
+    })
+  } catch {
+    console.log('[Google Ads] No age range data available')
+    return []
+  }
+}
+
+/**
+ * Extract gender performance data
+ */
+export async function extractGenderPerformance(
+  accessToken: string,
+  customerId: string,
+  startDate: string,
+  endDate: string,
+  loginCustomerId?: string
+): Promise<GenderData[]> {
+  const query = `
+    SELECT
+      ad_group_criterion.gender.type,
+      campaign.id,
+      campaign.name,
+      metrics.impressions,
+      metrics.clicks,
+      metrics.cost_micros,
+      metrics.conversions
+    FROM gender_view
+    WHERE segments.date BETWEEN '${startDate}' AND '${endDate}'
+    ORDER BY metrics.cost_micros DESC
+  `
+
+  interface GenderRow {
+    adGroupCriterion: {
+      gender: {
+        type: string
+      }
+    }
+    campaign: {
+      id: string
+      name: string
+    }
+    metrics: {
+      impressions: string
+      clicks: string
+      costMicros: string
+      conversions: string
+    }
+  }
+
+  try {
+    const results = await executeGaqlQuery<GenderRow>(
+      accessToken,
+      customerId,
+      query,
+      loginCustomerId
+    )
+
+    return results.map((row) => {
+      const impressions = parseInt(row.metrics.impressions) || 0
+      const clicks = parseInt(row.metrics.clicks) || 0
+      const cost = parseInt(row.metrics.costMicros) / 1_000_000 || 0
+      const conversions = parseFloat(row.metrics.conversions) || 0
+
+      return {
+        gender: row.adGroupCriterion.gender.type,
+        campaignId: row.campaign.id,
+        campaignName: row.campaign.name,
+        impressions,
+        clicks,
+        cost,
+        conversions,
+        ctr: impressions > 0 ? (clicks / impressions) * 100 : 0,
+        costPerConversion: conversions > 0 ? cost / conversions : 0,
+      }
+    })
+  } catch {
+    console.log('[Google Ads] No gender data available')
+    return []
+  }
+}
+
+/**
  * Extract all Google Ads data for analysis
  */
 export async function extractGoogleAdsData(
@@ -625,12 +1203,30 @@ export async function extractGoogleAdsData(
   console.log(`[Google Ads] Extracting data for ${customerId} from ${startDate} to ${endDate}`)
 
   // Extract all data in parallel
-  const [campaigns, adGroups, keywords, searchTerms, placements] = await Promise.all([
+  const [
+    campaigns,
+    adGroups,
+    keywords,
+    searchTerms,
+    placements,
+    devices,
+    locations,
+    ads,
+    hourlyPerformance,
+    ageRanges,
+    genders,
+  ] = await Promise.all([
     extractCampaigns(accessToken, customerId, startDate, endDate, loginCustomerId),
     extractAdGroups(accessToken, customerId, startDate, endDate, loginCustomerId),
     extractKeywords(accessToken, customerId, startDate, endDate, loginCustomerId),
     extractSearchTerms(accessToken, customerId, startDate, endDate, loginCustomerId),
     extractPlacements(accessToken, customerId, startDate, endDate, loginCustomerId),
+    extractDevicePerformance(accessToken, customerId, startDate, endDate, loginCustomerId),
+    extractLocationPerformance(accessToken, customerId, startDate, endDate, loginCustomerId),
+    extractAdPerformance(accessToken, customerId, startDate, endDate, loginCustomerId),
+    extractHourlyPerformance(accessToken, customerId, startDate, endDate, loginCustomerId),
+    extractAgeRangePerformance(accessToken, customerId, startDate, endDate, loginCustomerId),
+    extractGenderPerformance(accessToken, customerId, startDate, endDate, loginCustomerId),
   ])
 
   // Calculate summary
@@ -655,6 +1251,12 @@ export async function extractGoogleAdsData(
     keywords,
     searchTerms,
     placements,
+    devices,
+    locations,
+    ads,
+    hourlyPerformance,
+    ageRanges,
+    genders,
     summary: {
       totalCost,
       totalImpressions,

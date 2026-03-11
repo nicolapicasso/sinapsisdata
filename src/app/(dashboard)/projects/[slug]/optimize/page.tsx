@@ -253,11 +253,15 @@ export default function OptimizePage() {
   const getTypeIcon = (type: string) => {
     switch (type) {
       case 'NEGATIVE_KEYWORD':
-        return <XCircle className="w-4 h-4" />
       case 'EXCLUDE_PLACEMENT':
+      case 'EXCLUDE_LOCATION':
+      case 'EXCLUDE_AGE_RANGE':
+      case 'EXCLUDE_GENDER':
         return <XCircle className="w-4 h-4" />
       case 'PAUSE_KEYWORD':
       case 'PAUSE_CAMPAIGN':
+      case 'PAUSE_AD_GROUP':
+      case 'PAUSE_AD':
         return <AlertTriangle className="w-4 h-4" />
       default:
         return <Zap className="w-4 h-4" />

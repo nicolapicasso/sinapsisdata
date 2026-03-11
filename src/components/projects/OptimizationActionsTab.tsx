@@ -322,10 +322,21 @@ export function OptimizationActionsTab({ projectId, projectSlug }: OptimizationA
       EXCLUDE_PLACEMENT: 'Excluir placement',
       PAUSE_KEYWORD: 'Pausar keyword',
       ENABLE_KEYWORD: 'Activar keyword',
-      UPDATE_KEYWORD_BID: 'Cambiar puja',
+      UPDATE_KEYWORD_BID: 'Cambiar puja keyword',
       UPDATE_CAMPAIGN_BUDGET: 'Cambiar presupuesto',
       PAUSE_CAMPAIGN: 'Pausar campaña',
       ENABLE_CAMPAIGN: 'Activar campaña',
+      PAUSE_AD_GROUP: 'Pausar grupo',
+      ENABLE_AD_GROUP: 'Activar grupo',
+      UPDATE_AD_GROUP_BID: 'Cambiar puja grupo',
+      PAUSE_AD: 'Pausar anuncio',
+      ENABLE_AD: 'Activar anuncio',
+      UPDATE_DEVICE_BID_MODIFIER: 'Ajustar dispositivo',
+      EXCLUDE_LOCATION: 'Excluir ubicación',
+      UPDATE_LOCATION_BID_MODIFIER: 'Ajustar ubicación',
+      ADD_AD_SCHEDULE: 'Programar horario',
+      EXCLUDE_AGE_RANGE: 'Excluir edad',
+      EXCLUDE_GENDER: 'Excluir género',
     }
     return (
       <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded">
