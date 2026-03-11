@@ -84,7 +84,7 @@ interface Overview {
 
 interface DataSource {
   id: string
-  type: 'GOOGLE_ADS' | 'GOOGLE_ANALYTICS' | 'GOOGLE_SEARCH_CONSOLE'
+  type: 'GOOGLE_ADS' | 'GOOGLE_ANALYTICS' | 'GOOGLE_SEARCH_CONSOLE' | 'GOOGLE_MERCHANT' | 'META_ADS' | 'INSTAGRAM' | 'YOUTUBE' | 'CUSTOM_API'
   accountId: string
   accountName: string
   mccId?: string | null
