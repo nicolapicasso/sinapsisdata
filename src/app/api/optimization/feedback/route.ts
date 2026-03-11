@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
         project: {
           select: {
             name: true,
-            context: true,
+            aiContext: true,
           },
         },
         dataSource: {
@@ -109,7 +109,7 @@ function buildFeedbackPrompt(
   action: {
     type: string
     claudeReason: string
-    project: { name: string; context: string | null }
+    project: { name: string; aiContext: string | null }
     dataSource: { accountName: string }
   },
   feedback: string,
@@ -122,7 +122,7 @@ function buildFeedbackPrompt(
 CONTEXTO DEL PROYECTO:
 - Proyecto: ${action.project.name}
 - Cuenta Google Ads: ${action.dataSource.accountName}
-${action.project.context ? `- Contexto adicional: ${action.project.context}` : ''}
+${action.project.aiContext ? `- Contexto adicional: ${action.project.aiContext}` : ''}
 
 SUGERENCIA ORIGINAL:
 - Tipo: ${action.type}
@@ -147,7 +147,7 @@ function buildReportPrompt(
   action: {
     type: string
     claudeReason: string
-    project: { name: string; context: string | null }
+    project: { name: string; aiContext: string | null }
     dataSource: { accountName: string }
   },
   feedback: string,
@@ -160,7 +160,7 @@ function buildReportPrompt(
 CONTEXTO DEL PROYECTO:
 - Proyecto: ${action.project.name}
 - Cuenta Google Ads: ${action.dataSource.accountName}
-${action.project.context ? `- Contexto adicional: ${action.project.context}` : ''}
+${action.project.aiContext ? `- Contexto adicional: ${action.project.aiContext}` : ''}
 
 SUGERENCIA:
 - Tipo: ${action.type}
