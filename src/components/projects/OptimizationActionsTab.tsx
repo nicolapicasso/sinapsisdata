@@ -16,6 +16,9 @@ import {
   ChevronUp,
   Square,
   CheckSquare,
+  MessageCircle,
+  FileText,
+  Send,
 } from 'lucide-react'
 import { cn, formatDate } from '@/lib/utils'
 
@@ -45,6 +48,9 @@ interface OptimizationAction {
   reviewedAt?: string | null
   executedAt?: string | null
   createdAt: string
+  feedback?: string | null
+  claudeResponse?: string | null
+  feedbackAt?: string | null
   dataSource: {
     accountId: string
     accountName: string
@@ -68,6 +74,11 @@ export function OptimizationActionsTab({ projectId, projectSlug }: OptimizationA
   const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'history'>('pending')
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [bulkProcessing, setBulkProcessing] = useState(false)
+  // Feedback state
+  const [feedbackActionId, setFeedbackActionId] = useState<string | null>(null)
+  const [feedbackText, setFeedbackText] = useState('')
+  const [feedbackLoading, setFeedbackLoading] = useState(false)
+  const [feedbackResponse, setFeedbackResponse] = useState<string | null>(null)
 
   useEffect(() => {
     fetchActions()
@@ -277,6 +288,58 @@ export function OptimizationActionsTab({ projectId, projectSlug }: OptimizationA
     setSelectedIds(new Set())
     await fetchActions()
     alert(`Ejecutadas: ${successCount}, Errores: ${errorCount}`)
+  }
+
+  async function handleSendFeedback(generateReport: boolean = false) {
+    if (!feedbackActionId || !feedbackText.trim()) return
+
+    setFeedbackLoading(true)
+    setFeedbackResponse(null)
+
+    try {
+      const res = await fetch('/api/optimization/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          actionId: feedbackActionId,
+          feedback: feedbackText,
+          generateReport,
+        }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Error al enviar feedback')
+      }
+
+      setFeedbackResponse(data.response)
+      // Update the action in the list with the new feedback
+      setActions((prev) =>
+        prev.map((a) =>
+          a.id === feedbackActionId
+            ? { ...a, feedback: feedbackText, claudeResponse: data.response }
+            : a
+        )
+      )
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Error al enviar feedback')
+    } finally {
+      setFeedbackLoading(false)
+    }
+  }
+
+  function openFeedbackDialog(actionId: string) {
+    const action = actions.find((a) => a.id === actionId)
+    setFeedbackActionId(actionId)
+    setFeedbackText(action?.feedback || '')
+    setFeedbackResponse(action?.claudeResponse || null)
+  }
+
+  function closeFeedbackDialog() {
+    setFeedbackActionId(null)
+    setFeedbackText('')
+    setFeedbackResponse(null)
   }
 
   const getStatusBadge = (status: string) => {
@@ -656,6 +719,17 @@ export function OptimizationActionsTab({ projectId, projectSlug }: OptimizationA
                       </>
                     )}
 
+                    {/* Feedback button */}
+                    {action.status === 'PENDING' && (
+                      <button
+                        onClick={() => openFeedbackDialog(action.id)}
+                        className="flex items-center gap-1 p-1.5 text-gray-400 hover:text-primary hover:bg-primary/5 rounded transition"
+                        title="Dar feedback o pedir informe"
+                      >
+                        <MessageCircle className="w-5 h-5" />
+                      </button>
+                    )}
+
                     <button
                       onClick={() => setExpandedId(expandedId === action.id ? null : action.id)}
                       className="p-1.5 text-gray-400 hover:text-gray-600"
@@ -766,6 +840,85 @@ export function OptimizationActionsTab({ projectId, projectSlug }: OptimizationA
               <CheckSquare className="w-4 h-4" />
               Seleccionar todas
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Feedback Dialog */}
+      {feedbackActionId && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="p-4 border-b flex items-center justify-between">
+              <h3 className="font-semibold text-lg">Feedback sobre la sugerencia</h3>
+              <button
+                onClick={closeFeedbackDialog}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <XCircle className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-4 flex-1 overflow-y-auto">
+              <p className="text-sm text-gray-600 mb-4">
+                Escribe tu feedback, pregunta o solicita un informe detallado sobre esta sugerencia.
+                Claude responderá a tu consulta.
+              </p>
+
+              <textarea
+                value={feedbackText}
+                onChange={(e) => setFeedbackText(e.target.value)}
+                placeholder="Ej: Me preocupa que esto afecte a nuestra marca... / Genera un informe de impacto para esta acción..."
+                className="w-full p-3 border rounded-lg text-sm resize-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                rows={4}
+              />
+
+              {/* Claude's response */}
+              {feedbackResponse && (
+                <div className="mt-4 p-4 bg-gray-50 rounded-lg border">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
+                      <Zap className="w-3 h-3 text-white" />
+                    </div>
+                    <span className="font-medium text-sm">Claude</span>
+                  </div>
+                  <div className="prose prose-sm max-w-none text-gray-700 whitespace-pre-wrap">
+                    {feedbackResponse}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="p-4 border-t flex justify-between">
+              <button
+                onClick={() => handleSendFeedback(true)}
+                disabled={feedbackLoading || !feedbackText.trim()}
+                className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition text-sm disabled:opacity-50"
+              >
+                <FileText className="w-4 h-4" />
+                Generar informe
+              </button>
+
+              <div className="flex gap-2">
+                <button
+                  onClick={closeFeedbackDialog}
+                  className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition text-sm"
+                >
+                  Cerrar
+                </button>
+                <button
+                  onClick={() => handleSendFeedback(false)}
+                  disabled={feedbackLoading || !feedbackText.trim()}
+                  className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-600 transition text-sm disabled:opacity-50"
+                >
+                  {feedbackLoading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Send className="w-4 h-4" />
+                  )}
+                  Enviar feedback
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

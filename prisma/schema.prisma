@@ -322,14 +322,25 @@ model DataSource {
 // ============================================
 
 enum OptimizationActionType {
-  NEGATIVE_KEYWORD       // Añadir keyword negativa
-  EXCLUDE_PLACEMENT      // Excluir placement
-  PAUSE_KEYWORD          // Pausar keyword
-  ENABLE_KEYWORD         // Habilitar keyword
-  UPDATE_KEYWORD_BID     // Modificar puja de keyword
-  UPDATE_CAMPAIGN_BUDGET // Modificar presupuesto de campaña
-  PAUSE_CAMPAIGN         // Pausar campaña
-  ENABLE_CAMPAIGN        // Habilitar campaña
+  NEGATIVE_KEYWORD           // Añadir keyword negativa
+  EXCLUDE_PLACEMENT          // Excluir placement
+  PAUSE_KEYWORD              // Pausar keyword
+  ENABLE_KEYWORD             // Habilitar keyword
+  UPDATE_KEYWORD_BID         // Modificar puja de keyword
+  UPDATE_CAMPAIGN_BUDGET     // Modificar presupuesto de campaña
+  PAUSE_CAMPAIGN             // Pausar campaña
+  ENABLE_CAMPAIGN            // Habilitar campaña
+  PAUSE_AD_GROUP             // Pausar grupo de anuncios
+  ENABLE_AD_GROUP            // Habilitar grupo de anuncios
+  UPDATE_AD_GROUP_BID        // Modificar puja del grupo
+  PAUSE_AD                   // Pausar anuncio
+  ENABLE_AD                  // Habilitar anuncio
+  UPDATE_DEVICE_BID_MODIFIER // Ajustar puja por dispositivo
+  EXCLUDE_LOCATION           // Excluir ubicación geográfica
+  UPDATE_LOCATION_BID_MODIFIER // Ajustar puja por ubicación
+  ADD_AD_SCHEDULE            // Añadir programación horaria
+  EXCLUDE_AGE_RANGE          // Excluir rango de edad
+  EXCLUDE_GENDER             // Excluir género
 }
 
 enum OptimizationActionStatus {
@@ -363,6 +374,11 @@ model OptimizationAction {
   // Respuesta del usuario
   userComment  String?
   reviewedAt   DateTime?
+
+  // Feedback interactivo con Claude
+  feedback        String?                  // Pregunta o feedback del usuario
+  claudeResponse  String?    @db.Text      // Respuesta de Claude al feedback
+  feedbackAt      DateTime?
 
   // Ejecución
   executedAt   DateTime?

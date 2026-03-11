@@ -193,6 +193,9 @@ export interface GoogleAdsAnalysisData {
   hourlyPerformance: HourData[]
   ageRanges: AgeRangeData[]
   genders: GenderData[]
+  // Existing exclusions (to avoid duplicate suggestions)
+  existingNegativeKeywords: ExistingNegativeKeyword[]
+  existingExcludedPlacements: ExistingPlacementExclusion[]
   summary: {
     totalCost: number
     totalImpressions: number
@@ -1181,6 +1184,165 @@ export async function extractGenderPerformance(
   }
 }
 
+// ============================================
+// EXISTING EXCLUSIONS (for duplicate detection)
+// ============================================
+
+export interface ExistingNegativeKeyword {
+  keyword: string
+  matchType: string
+  campaignId: string
+  adGroupId?: string
+  level: 'CAMPAIGN' | 'AD_GROUP'
+}
+
+export interface ExistingPlacementExclusion {
+  placement: string
+  campaignId: string
+}
+
+/**
+ * Extract existing negative keywords at campaign level
+ */
+export async function extractExistingNegativeKeywords(
+  accessToken: string,
+  customerId: string,
+  loginCustomerId?: string
+): Promise<ExistingNegativeKeyword[]> {
+  // Campaign-level negatives
+  const campaignQuery = `
+    SELECT
+      campaign_criterion.keyword.text,
+      campaign_criterion.keyword.match_type,
+      campaign.id
+    FROM campaign_criterion
+    WHERE campaign_criterion.type = 'KEYWORD'
+      AND campaign_criterion.negative = true
+  `
+
+  // Ad group-level negatives
+  const adGroupQuery = `
+    SELECT
+      ad_group_criterion.keyword.text,
+      ad_group_criterion.keyword.match_type,
+      campaign.id,
+      ad_group.id
+    FROM ad_group_criterion
+    WHERE ad_group_criterion.type = 'KEYWORD'
+      AND ad_group_criterion.negative = true
+  `
+
+  interface CampaignNegativeRow {
+    campaignCriterion: {
+      keyword: {
+        text: string
+        matchType: string
+      }
+    }
+    campaign: { id: string }
+  }
+
+  interface AdGroupNegativeRow {
+    adGroupCriterion: {
+      keyword: {
+        text: string
+        matchType: string
+      }
+    }
+    campaign: { id: string }
+    adGroup: { id: string }
+  }
+
+  const results: ExistingNegativeKeyword[] = []
+
+  try {
+    const campaignNegatives = await executeGaqlQuery<CampaignNegativeRow>(
+      accessToken,
+      customerId,
+      campaignQuery,
+      loginCustomerId
+    )
+
+    for (const row of campaignNegatives) {
+      results.push({
+        keyword: row.campaignCriterion.keyword.text,
+        matchType: row.campaignCriterion.keyword.matchType,
+        campaignId: row.campaign.id,
+        level: 'CAMPAIGN',
+      })
+    }
+  } catch {
+    console.log('[Google Ads] No campaign negative keywords found')
+  }
+
+  try {
+    const adGroupNegatives = await executeGaqlQuery<AdGroupNegativeRow>(
+      accessToken,
+      customerId,
+      adGroupQuery,
+      loginCustomerId
+    )
+
+    for (const row of adGroupNegatives) {
+      results.push({
+        keyword: row.adGroupCriterion.keyword.text,
+        matchType: row.adGroupCriterion.keyword.matchType,
+        campaignId: row.campaign.id,
+        adGroupId: row.adGroup.id,
+        level: 'AD_GROUP',
+      })
+    }
+  } catch {
+    console.log('[Google Ads] No ad group negative keywords found')
+  }
+
+  return results
+}
+
+/**
+ * Extract existing excluded placements
+ */
+export async function extractExistingExcludedPlacements(
+  accessToken: string,
+  customerId: string,
+  loginCustomerId?: string
+): Promise<ExistingPlacementExclusion[]> {
+  const query = `
+    SELECT
+      campaign_criterion.placement.url,
+      campaign.id
+    FROM campaign_criterion
+    WHERE campaign_criterion.type = 'PLACEMENT'
+      AND campaign_criterion.negative = true
+  `
+
+  interface PlacementRow {
+    campaignCriterion: {
+      placement: {
+        url: string
+      }
+    }
+    campaign: { id: string }
+  }
+
+  try {
+    const results = await executeGaqlQuery<PlacementRow>(
+      accessToken,
+      customerId,
+      query,
+      loginCustomerId
+    )
+
+    return results.map((row) => ({
+      placement: row.campaignCriterion.placement.url,
+      campaignId: row.campaign.id,
+    }))
+  } catch {
+    console.log('[Google Ads] No excluded placements found')
+    return []
+  }
+}
+
 /**
  * Extract all Google Ads data for analysis
  */
@@ -1215,6 +1377,8 @@ export async function extractGoogleAdsData(
     hourlyPerformance,
     ageRanges,
     genders,
+    existingNegativeKeywords,
+    existingExcludedPlacements,
   ] = await Promise.all([
     extractCampaigns(accessToken, customerId, startDate, endDate, loginCustomerId),
     extractAdGroups(accessToken, customerId, startDate, endDate, loginCustomerId),
@@ -1227,6 +1391,8 @@ export async function extractGoogleAdsData(
     extractHourlyPerformance(accessToken, customerId, startDate, endDate, loginCustomerId),
     extractAgeRangePerformance(accessToken, customerId, startDate, endDate, loginCustomerId),
     extractGenderPerformance(accessToken, customerId, startDate, endDate, loginCustomerId),
+    extractExistingNegativeKeywords(accessToken, customerId, loginCustomerId),
+    extractExistingExcludedPlacements(accessToken, customerId, loginCustomerId),
   ])
 
   // Calculate summary
@@ -1257,6 +1423,8 @@ export async function extractGoogleAdsData(
     hourlyPerformance,
     ageRanges,
     genders,
+    existingNegativeKeywords,
+    existingExcludedPlacements,
     summary: {
       totalCost,
       totalImpressions,
