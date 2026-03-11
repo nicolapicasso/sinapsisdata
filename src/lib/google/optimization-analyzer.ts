@@ -17,6 +17,17 @@ export type OptimizationActionType =
   | 'UPDATE_CAMPAIGN_BUDGET'
   | 'PAUSE_CAMPAIGN'
   | 'ENABLE_CAMPAIGN'
+  | 'PAUSE_AD_GROUP'
+  | 'ENABLE_AD_GROUP'
+  | 'UPDATE_AD_GROUP_BID'
+  | 'PAUSE_AD'
+  | 'ENABLE_AD'
+  | 'UPDATE_DEVICE_BID_MODIFIER'
+  | 'EXCLUDE_LOCATION'
+  | 'UPDATE_LOCATION_BID_MODIFIER'
+  | 'ADD_AD_SCHEDULE'
+  | 'EXCLUDE_AGE_RANGE'
+  | 'EXCLUDE_GENDER'
 
 export interface OptimizationSuggestion {
   type: OptimizationActionType
@@ -35,6 +46,10 @@ export interface OptimizationSuggestion {
     searchTerm?: string
     placement?: string
     budgetId?: string
+    adId?: string
+    device?: string
+    locationId?: string
+    locationCriterionId?: string
   }
   payload: Record<string, unknown>
   metrics: {
@@ -45,6 +60,7 @@ export interface OptimizationSuggestion {
     ctr?: number
     cpc?: number
     costPerConversion?: number
+    conversionRate?: number
   }
 }
 
@@ -54,6 +70,78 @@ export interface AnalysisResult {
   suggestions: OptimizationSuggestion[]
   insights: string[]
   warnings: string[]
+}
+
+/**
+ * Helper to aggregate device performance by campaign
+ */
+function aggregateDevicePerformance(
+  devices: GoogleAdsAnalysisData['devices']
+): Array<{
+  campaignName: string
+  device: string
+  cost: number
+  conversions: number
+  costPerConversion: number
+  conversionRate: number
+}> {
+  const aggregated = new Map<string, {
+    campaignName: string
+    device: string
+    cost: number
+    conversions: number
+    clicks: number
+  }>()
+
+  for (const d of devices) {
+    const key = `${d.campaignId}-${d.device}`
+    const existing = aggregated.get(key)
+    if (existing) {
+      existing.cost += d.cost
+      existing.conversions += d.conversions
+      existing.clicks += d.clicks
+    } else {
+      aggregated.set(key, {
+        campaignName: d.campaignName,
+        device: d.device,
+        cost: d.cost,
+        conversions: d.conversions,
+        clicks: d.clicks,
+      })
+    }
+  }
+
+  return Array.from(aggregated.values()).map((d) => ({
+    ...d,
+    costPerConversion: d.conversions > 0 ? d.cost / d.conversions : 0,
+    conversionRate: d.clicks > 0 ? (d.conversions / d.clicks) * 100 : 0,
+  }))
+}
+
+/**
+ * Helper to aggregate data by a field
+ */
+function aggregateByField<T extends { cost: number; conversions: number }>(
+  items: T[],
+  field: keyof T
+): Array<T & { costPerConversion: number }> {
+  const aggregated = new Map<unknown, T>()
+
+  for (const item of items) {
+    const key = item[field]
+    const existing = aggregated.get(key)
+    if (existing) {
+      existing.cost += item.cost
+      existing.conversions += item.conversions
+    } else {
+      aggregated.set(key, { ...item })
+    }
+  }
+
+  return Array.from(aggregated.values()).map((item) => ({
+    ...item,
+    costPerConversion: item.conversions > 0 ? item.cost / item.conversions : 0,
+  }))
 }
 
 /**
@@ -113,6 +201,54 @@ function buildAnalysisPrompt(data: GoogleAdsAnalysisData, projectContext?: strin
     )
     .join('\n')
 
+  // Aggregate device performance by campaign
+  const devicePerformance = aggregateDevicePerformance(data.devices)
+  const deviceSummary = devicePerformance
+    .slice(0, 20)
+    .map(
+      (d) =>
+        `- ${d.campaignName} [${d.device}]: ${d.cost.toFixed(2)}€ cost, ${d.conversions.toFixed(1)} conv, CPA: ${d.costPerConversion.toFixed(2)}€, Conv Rate: ${d.conversionRate.toFixed(2)}%`
+    )
+    .join('\n')
+
+  // Aggregate location performance
+  const locationPerformance = data.locations
+    .filter((l) => l.cost > 10)
+    .sort((a, b) => b.cost - a.cost)
+    .slice(0, 20)
+    .map(
+      (l) =>
+        `- ${l.campaignName} [Location ${l.locationId}]: ${l.cost.toFixed(2)}€ cost, ${l.conversions.toFixed(1)} conv, CPA: ${l.costPerConversion.toFixed(2)}€`
+    )
+    .join('\n')
+
+  // Low performing ads
+  const lowPerformingAds = data.ads
+    .filter((a) => a.status === 'ENABLED' && a.cost > 20 && a.conversions === 0)
+    .sort((a, b) => b.cost - a.cost)
+    .slice(0, 15)
+    .map(
+      (a) =>
+        `- Ad ${a.adId} in "${a.adGroupName}" > "${a.campaignName}": ${a.cost.toFixed(2)}€ cost, CTR: ${a.ctr.toFixed(2)}%, 0 conv`
+    )
+    .join('\n')
+
+  // Age range performance
+  const ageRangePerformance = aggregateByField(data.ageRanges, 'ageRange')
+    .map(
+      (a) =>
+        `- ${a.ageRange}: ${a.cost.toFixed(2)}€ cost, ${a.conversions.toFixed(1)} conv, CPA: ${a.costPerConversion.toFixed(2)}€`
+    )
+    .join('\n')
+
+  // Gender performance
+  const genderPerformance = aggregateByField(data.genders, 'gender')
+    .map(
+      (g) =>
+        `- ${g.gender}: ${g.cost.toFixed(2)}€ cost, ${g.conversions.toFixed(1)} conv, CPA: ${g.costPerConversion.toFixed(2)}€`
+    )
+    .join('\n')
+
   return `Eres un experto en optimización de Google Ads. Analiza los siguientes datos de la cuenta "${data.accountName}" (ID: ${data.accountId}) para el período ${data.dateRange.startDate} a ${data.dateRange.endDate}.
 
 ${projectContext ? `CONTEXTO DEL PROYECTO:\n${projectContext}\n\n` : ''}
@@ -146,13 +282,28 @@ ${lowPerformingPlacements || 'Ninguno encontrado'}
 KEYWORDS CON ALTO COSTE Y BAJO RENDIMIENTO:
 ${highCostKeywordsLowConversions || 'Ninguno encontrado'}
 
+RENDIMIENTO POR DISPOSITIVO (por campaña):
+${deviceSummary || 'Sin datos de dispositivos'}
+
+RENDIMIENTO POR UBICACIÓN GEOGRÁFICA:
+${locationPerformance || 'Sin datos de ubicación'}
+
+ANUNCIOS CON BAJO RENDIMIENTO (gasto >20€, 0 conv):
+${lowPerformingAds || 'Ninguno encontrado'}
+
+RENDIMIENTO POR EDAD:
+${ageRangePerformance || 'Sin datos demográficos'}
+
+RENDIMIENTO POR GÉNERO:
+${genderPerformance || 'Sin datos demográficos'}
+
 Genera un análisis JSON con la siguiente estructura:
 {
   "summary": "Resumen ejecutivo de 2-3 oraciones del estado de la cuenta",
   "healthScore": <número 0-100 indicando salud general>,
   "suggestions": [
     {
-      "type": "<NEGATIVE_KEYWORD|EXCLUDE_PLACEMENT|PAUSE_KEYWORD|UPDATE_KEYWORD_BID|UPDATE_CAMPAIGN_BUDGET|PAUSE_CAMPAIGN>",
+      "type": "<tipo de acción - ver lista abajo>",
       "priority": "<LOW|MEDIUM|HIGH|CRITICAL>",
       "title": "Título corto de la acción",
       "description": "Descripción detallada de qué hacer",
@@ -165,19 +316,19 @@ Genera un análisis JSON con la siguiente estructura:
         "adGroupName": "Nombre si aplica",
         "keywordText": "Texto si aplica",
         "searchTerm": "Término si aplica",
-        "placement": "Placement si aplica"
+        "placement": "Placement si aplica",
+        "adId": "ID del anuncio si aplica",
+        "device": "MOBILE|DESKTOP|TABLET si aplica",
+        "locationId": "ID de ubicación si aplica"
       },
       "payload": {
-        // Datos específicos para ejecutar la acción
-        // Para NEGATIVE_KEYWORD: {"keyword": "texto", "matchType": "EXACT|PHRASE|BROAD"}
-        // Para EXCLUDE_PLACEMENT: {"placement": "url"}
-        // Para PAUSE_KEYWORD: {"criterionId": "id"}
-        // Para UPDATE_KEYWORD_BID: {"criterionId": "id", "bidMicros": 1500000}
+        // Datos específicos para ejecutar la acción - ver ejemplos abajo
       },
       "metrics": {
         "cost": <coste actual>,
         "conversions": <conversiones actuales>,
-        "ctr": <CTR actual>
+        "ctr": <CTR actual>,
+        "conversionRate": <tasa de conversión si aplica>
       }
     }
   ],
@@ -189,6 +340,27 @@ Genera un análisis JSON con la siguiente estructura:
     "Warning 1: Problema que requiere atención inmediata",
     "Warning 2: ..."
   ]
+
+TIPOS DE ACCIÓN DISPONIBLES Y SUS PAYLOADS:
+- NEGATIVE_KEYWORD: {"keyword": "texto", "matchType": "EXACT|PHRASE|BROAD"}
+- EXCLUDE_PLACEMENT: {"placement": "url"}
+- PAUSE_KEYWORD: {} (usa keywordText en targetEntity)
+- ENABLE_KEYWORD: {} (usa keywordText en targetEntity)
+- UPDATE_KEYWORD_BID: {"bidMicros": 1500000} (1.5€)
+- UPDATE_CAMPAIGN_BUDGET: {"budgetReduction": 50} (reducir 50%)
+- PAUSE_CAMPAIGN: {}
+- ENABLE_CAMPAIGN: {}
+- PAUSE_AD_GROUP: {} (requiere adGroupName en targetEntity)
+- ENABLE_AD_GROUP: {}
+- UPDATE_AD_GROUP_BID: {"bidMicros": 1000000}
+- PAUSE_AD: {} (requiere adId en targetEntity)
+- ENABLE_AD: {}
+- UPDATE_DEVICE_BID_MODIFIER: {"device": "MOBILE|DESKTOP|TABLET", "bidModifier": 0.5} (0.5 = -50%, 1.5 = +50%, 0 = excluir)
+- EXCLUDE_LOCATION: {"locationId": "123456"}
+- UPDATE_LOCATION_BID_MODIFIER: {"bidModifier": 1.2} (requiere locationId en targetEntity)
+- ADD_AD_SCHEDULE: {"dayOfWeek": "MONDAY", "startHour": 9, "endHour": 18, "bidModifier": 1.0}
+- EXCLUDE_AGE_RANGE: {"ageRange": "AGE_RANGE_18_24|AGE_RANGE_25_34|AGE_RANGE_35_44|AGE_RANGE_45_54|AGE_RANGE_55_64|AGE_RANGE_65_UP"}
+- EXCLUDE_GENDER: {"gender": "MALE|FEMALE|UNDETERMINED"}
 }
 
 REGLAS IMPORTANTES:
@@ -328,7 +500,7 @@ export async function analyzeGoogleAdsData(
 
     // For campaign-related actions, enrich with budgetId and calculate actual amounts
     if (
-      ['UPDATE_CAMPAIGN_BUDGET', 'PAUSE_CAMPAIGN', 'ENABLE_CAMPAIGN'].includes(suggestion.type) &&
+      ['UPDATE_CAMPAIGN_BUDGET', 'PAUSE_CAMPAIGN', 'ENABLE_CAMPAIGN', 'UPDATE_DEVICE_BID_MODIFIER', 'EXCLUDE_LOCATION', 'EXCLUDE_AGE_RANGE', 'EXCLUDE_GENDER', 'ADD_AD_SCHEDULE'].includes(suggestion.type) &&
       suggestion.targetEntity.campaignName
     ) {
       const matchingCampaign = data.campaigns.find(
@@ -345,6 +517,37 @@ export async function analyzeGoogleAdsData(
           const newBudgetMicros = Math.round(currentBudgetMicros * (1 - reductionPercent / 100))
           suggestion.payload.amountMicros = newBudgetMicros
         }
+      }
+    }
+
+    // For ad group-related actions
+    if (
+      ['PAUSE_AD_GROUP', 'ENABLE_AD_GROUP', 'UPDATE_AD_GROUP_BID'].includes(suggestion.type) &&
+      suggestion.targetEntity.adGroupName
+    ) {
+      const matchingAdGroup = data.adGroups.find(
+        (ag) => ag.adGroupName === suggestion.targetEntity.adGroupName
+      )
+      if (matchingAdGroup) {
+        suggestion.targetEntity.adGroupId = matchingAdGroup.adGroupId
+        suggestion.targetEntity.campaignId = matchingAdGroup.campaignId
+        suggestion.targetEntity.campaignName = matchingAdGroup.campaignName
+      }
+    }
+
+    // For ad-related actions
+    if (
+      ['PAUSE_AD', 'ENABLE_AD'].includes(suggestion.type) &&
+      suggestion.targetEntity.adId
+    ) {
+      const matchingAd = data.ads.find(
+        (a) => a.adId === suggestion.targetEntity.adId
+      )
+      if (matchingAd) {
+        suggestion.targetEntity.adGroupId = matchingAd.adGroupId
+        suggestion.targetEntity.campaignId = matchingAd.campaignId
+        suggestion.targetEntity.campaignName = matchingAd.campaignName
+        suggestion.targetEntity.adGroupName = matchingAd.adGroupName
       }
     }
 
