@@ -649,13 +649,13 @@ export function OptimizationActionsTab({ projectId, projectSlug }: OptimizationA
                     {/* Metrics */}
                     {action.metrics && Object.keys(action.metrics).length > 0 && (
                       <div className="flex gap-4 mt-2 text-xs text-gray-500">
-                        {action.metrics.cost !== undefined && (
+                        {action.metrics.cost != null && (
                           <span>Coste: {action.metrics.cost.toFixed(2)}€</span>
                         )}
-                        {action.metrics.conversions !== undefined && (
+                        {action.metrics.conversions != null && (
                           <span>Conv: {action.metrics.conversions}</span>
                         )}
-                        {action.metrics.ctr !== undefined && (
+                        {action.metrics.ctr != null && (
                           <span>CTR: {action.metrics.ctr.toFixed(2)}%</span>
                         )}
                       </div>
